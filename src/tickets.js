@@ -29,8 +29,6 @@ import { config } from './config.js';
 /* CONFIG                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const PANEL_MARKER = 'eclipse-ticket-panel-v1';
-
 const CUSTOM_IDS = {
     staff: 'eclipse_ticket_staff',
     team: 'eclipse_ticket_team',
@@ -233,16 +231,10 @@ function hasTicketPanel(message) {
     );
 
     /*
-     * Primary detection.
-     */
-
-    if (components.includes(PANEL_MARKER)) {
-        return true;
-    }
-
-    /*
-     * Secondary detection for an older Eclipse panel
-     * that may have been created before the marker existed.
+     * The panel is identified by its four main
+     * button custom IDs.
+     *
+     * No hidden marker is used.
      */
 
     const expectedButtonIds = [
@@ -322,19 +314,9 @@ function buildPanelButton(
 function buildTicketPanel() {
     const container = new ContainerBuilder();
 
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `# Eclipse Support\n` +
-        ),
-    );
-
     /*
      * STAFF APPLICATIONS
      */
-
-    container.addSeparatorComponents(
-        new SeparatorBuilder().setDivider(true),
-    );
 
     container.addSectionComponents(
         new SectionBuilder()
@@ -352,10 +334,6 @@ function buildTicketPanel() {
                 ),
             ),
     );
-
-    /*
-     * Divider after Staff Applications.
-     */
 
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
@@ -382,10 +360,6 @@ function buildTicketPanel() {
             ),
     );
 
-    /*
-     * Divider after Team Applications.
-     */
-
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
@@ -411,10 +385,6 @@ function buildTicketPanel() {
             ),
     );
 
-    /*
-     * Divider after General Enquiries.
-     */
-
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
@@ -439,10 +409,6 @@ function buildTicketPanel() {
                 ),
             ),
     );
-
-    /*
-     * Divider after Partnerships.
-     */
 
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
@@ -484,19 +450,6 @@ function buildTicketPanel() {
         );
     }
 
-    /*
-     * Hidden marker.
-     *
-     * The bot searches Discord for this marker on every
-     * startup, so restarts do not create duplicate panels.
-     */
-
-    container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-            `\u200b${PANEL_MARKER}`,
-        ),
-    );
-
     return container;
 }
 
@@ -505,6 +458,10 @@ function buildTicketPanel() {
 /* -------------------------------------------------------------------------- */
 
 async function ensureTicketPanel(client) {
+    console.log(
+        '[Eclipse Tickets] Starting ticket panel check...',
+    );
+
     const channel = await client.channels.fetch(
         config.tickets.panelChannelId,
     );
@@ -522,7 +479,11 @@ async function ensureTicketPanel(client) {
     }
 
     console.log(
-        '[Eclipse Tickets] Checking for existing ticket panel...',
+        `[Eclipse Tickets] Panel channel found: ${channel.id}`,
+    );
+
+    console.log(
+        '[Eclipse Tickets] Searching entire channel for an existing panel...',
     );
 
     const existingPanel =
@@ -537,7 +498,11 @@ async function ensureTicketPanel(client) {
     }
 
     console.log(
-        '[Eclipse Tickets] No ticket panel found. Sending a new panel...',
+        '[Eclipse Tickets] No existing ticket panel found.',
+    );
+
+    console.log(
+        '[Eclipse Tickets] Sending new ticket panel...',
     );
 
     const panel = await channel.send({
@@ -548,7 +513,7 @@ async function ensureTicketPanel(client) {
     });
 
     console.log(
-        `[Eclipse Tickets] New ticket panel sent: ${panel.id}`,
+        `[Eclipse Tickets] New ticket panel sent successfully: ${panel.id}`,
     );
 
     return panel;
@@ -693,12 +658,10 @@ async function sendCentralLog(
                 name: field.name,
                 value:
                     truncate(
-                        field.value ??
-                            'N/A',
+                        field.value ?? 'N/A',
                     ),
                 inline:
-                    field.inline ??
-                    false,
+                    field.inline ?? false,
             });
         }
 
@@ -1191,8 +1154,7 @@ async function refreshTicketMessage(
 
                 const components =
                     JSON.stringify(
-                        message.components ??
-                            [],
+                        message.components ?? [],
                     );
 
                 return components.includes(
@@ -1381,10 +1343,6 @@ async function handleClaim(
         });
     }
 
-    /*
-     * UNCLAIM
-     */
-
     if (ticket.claimedBy) {
         if (
             ticket.claimedBy !==
@@ -1436,10 +1394,6 @@ async function handleClaim(
             ephemeral: true,
         });
     }
-
-    /*
-     * CLAIM
-     */
 
     const updated =
         await claimTicket(
@@ -1537,37 +1491,25 @@ async function handlePriority(
             .addOptions(
                 {
                     label: 'Low',
-
                     description:
                         'Normal ticket priority.',
-
-                    value:
-                        'low',
-
+                    value: 'low',
                     emoji: '🟢',
                 },
 
                 {
                     label: 'High',
-
                     description:
                         'Ticket requires increased attention.',
-
-                    value:
-                        'high',
-
+                    value: 'high',
                     emoji: '🟠',
                 },
 
                 {
                     label: 'Urgent',
-
                     description:
                         'Ticket requires immediate attention.',
-
-                    value:
-                        'urgent',
-
+                    value: 'urgent',
                     emoji: '🚨',
                 },
             );
@@ -1795,14 +1737,7 @@ export async function registerTicketSystem(
     client,
 ) {
     /*
-     * Discord.js v15:
-     * "ready" was renamed to "clientReady".
-     *
-     * On every bot startup:
-     * 1. Fetch the panel channel.
-     * 2. Search the complete message history.
-     * 3. If an Eclipse panel exists, do nothing.
-     * 4. If it doesn't exist, create exactly one.
+     * This listener MUST be registered before client.login().
      */
 
     client.once(
@@ -1880,10 +1815,6 @@ export async function registerTicketSystem(
                     }
                 }
 
-                /*
-                 * Team application selection.
-                 */
-
                 if (
                     interaction.isStringSelectMenu() &&
                     interaction.customId ===
@@ -1894,10 +1825,6 @@ export async function registerTicketSystem(
                         interaction.values[0],
                     );
                 }
-
-                /*
-                 * Priority selection.
-                 */
 
                 if (
                     interaction.isStringSelectMenu() &&
@@ -1920,25 +1847,17 @@ export async function registerTicketSystem(
                         interaction.replied ||
                         interaction.deferred
                     ) {
-                        await interaction.followUp(
-                            {
-                                content:
-                                    'Something went wrong while processing that ticket action.',
-
-                                ephemeral:
-                                    true,
-                            },
-                        );
+                        await interaction.followUp({
+                            content:
+                                'Something went wrong while processing that ticket action.',
+                            ephemeral: true,
+                        });
                     } else {
-                        await interaction.reply(
-                            {
-                                content:
-                                    'Something went wrong while processing that ticket action.',
-
-                                ephemeral:
-                                    true,
-                            },
-                        );
+                        await interaction.reply({
+                            content:
+                                'Something went wrong while processing that ticket action.',
+                            ephemeral: true,
+                        });
                     }
                 } catch {
                     // Ignore secondary interaction errors.
