@@ -37,7 +37,21 @@ const client = new Client({
     ],
 });
 
-client.once('ready', async () => {
+/*
+ * Register all systems BEFORE login.
+ *
+ * This is important because some systems listen for
+ * the clientReady event. If they are registered after
+ * clientReady has already fired, they will never run.
+ */
+
+registerWelcome(client);
+
+registerTicketSystem(client);
+
+registerModeration(client);
+
+client.once('clientReady', async () => {
     console.log(
         `[BOT] Logged in as ${client.user.tag}`,
     );
@@ -48,12 +62,6 @@ client.once('ready', async () => {
 
     try {
         await initializeDatabase();
-
-        await registerWelcome(client);
-
-        await registerTicketSystem(client);
-
-        await registerModeration(client);
 
         console.log(
             '[BOT] Eclipse systems loaded successfully.',
