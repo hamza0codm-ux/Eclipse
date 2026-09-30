@@ -176,7 +176,7 @@ function buildTicketPanel() {
 
     const teamButton = new ButtonBuilder()
         .setCustomId(TICKET_TYPES.team.buttonId)
-        .setLabel('Join the Eclipse Team')
+        .setLabel('Join Eclipse')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('⚒️');
 
