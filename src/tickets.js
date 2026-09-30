@@ -325,7 +325,6 @@ function buildTicketPanel() {
     container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
             `# Eclipse Support\n` +
-            `Select the department below to open a ticket with the Eclipse team.`,
         ),
     );
 
