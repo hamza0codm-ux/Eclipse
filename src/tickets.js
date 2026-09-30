@@ -232,7 +232,31 @@ function hasTicketPanel(message) {
         message.components,
     );
 
-    return components.includes(PANEL_MARKER);
+    /*
+     * Primary detection.
+     */
+
+    if (components.includes(PANEL_MARKER)) {
+        return true;
+    }
+
+    /*
+     * Secondary detection for an older Eclipse panel
+     * that may have been created before the marker existed.
+     */
+
+    const expectedButtonIds = [
+        CUSTOM_IDS.staff,
+        CUSTOM_IDS.team,
+        CUSTOM_IDS.enquiries,
+        CUSTOM_IDS.partnerships,
+    ];
+
+    const matches = expectedButtonIds.filter(
+        (id) => components.includes(id),
+    );
+
+    return matches.length >= 3;
 }
 
 async function findExistingPanel(channel) {
@@ -313,26 +337,27 @@ function buildTicketPanel() {
         new SeparatorBuilder().setDivider(true),
     );
 
-    const staffSection = new SectionBuilder()
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### 💼 Eclipse Staff applications\n` +
-                `Click the button below to apply for the position of Staff.`,
-            ),
-        )
-        .setButtonAccessory(
-            buildPanelButton(
-                CUSTOM_IDS.staff,
-                'Apply',
-                '💼',
-            ),
-        );
-
     container.addSectionComponents(
-        staffSection,
+        new SectionBuilder()
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### 💼 Eclipse Staff applications\n` +
+                    `Click the button below to apply for the position of Staff.`,
+                ),
+            )
+            .setButtonAccessory(
+                buildPanelButton(
+                    CUSTOM_IDS.staff,
+                    'Apply',
+                    '💼',
+                ),
+            ),
     );
 
-    // Divider after Staff Applications.
+    /*
+     * Divider after Staff Applications.
+     */
+
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
@@ -341,26 +366,27 @@ function buildTicketPanel() {
      * TEAM APPLICATIONS
      */
 
-    const teamSection = new SectionBuilder()
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### ⚒️ Eclipse Team Applications\n` +
-                `Click the button below to join our team.`,
-            ),
-        )
-        .setButtonAccessory(
-            buildPanelButton(
-                CUSTOM_IDS.team,
-                'Join Team',
-                '⚒️',
-            ),
-        );
-
     container.addSectionComponents(
-        teamSection,
+        new SectionBuilder()
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### ⚒️ Eclipse Team Applications\n` +
+                    `Click the button below to join our team.`,
+                ),
+            )
+            .setButtonAccessory(
+                buildPanelButton(
+                    CUSTOM_IDS.team,
+                    'Join Team',
+                    '⚒️',
+                ),
+            ),
     );
 
-    // Divider after Team Applications.
+    /*
+     * Divider after Team Applications.
+     */
+
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
@@ -369,26 +395,27 @@ function buildTicketPanel() {
      * GENERAL ENQUIRIES
      */
 
-    const enquiriesSection = new SectionBuilder()
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### 📞 General Enquiries\n` +
-                `Click the button below if you need help from our Staff.`,
-            ),
-        )
-        .setButtonAccessory(
-            buildPanelButton(
-                CUSTOM_IDS.enquiries,
-                'Enquire',
-                '📞',
-            ),
-        );
-
     container.addSectionComponents(
-        enquiriesSection,
+        new SectionBuilder()
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### 📞 General Enquiries\n` +
+                    `Click the button below if you need help from our Staff.`,
+                ),
+            )
+            .setButtonAccessory(
+                buildPanelButton(
+                    CUSTOM_IDS.enquiries,
+                    'Enquire',
+                    '📞',
+                ),
+            ),
     );
 
-    // Divider after General Enquiries.
+    /*
+     * Divider after General Enquiries.
+     */
+
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
@@ -397,35 +424,33 @@ function buildTicketPanel() {
      * PARTNERSHIPS
      */
 
-    const partnershipsSection = new SectionBuilder()
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `### 🤝 Partnerships\n` +
-                `Click the button below to partner with Eclipse.`,
-            ),
-        )
-        .setButtonAccessory(
-            buildPanelButton(
-                CUSTOM_IDS.partnerships,
-                'Partner',
-                '🤝',
-            ),
-        );
-
     container.addSectionComponents(
-        partnershipsSection,
+        new SectionBuilder()
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                    `### 🤝 Partnerships\n` +
+                    `Click the button below to partner with Eclipse.`,
+                ),
+            )
+            .setButtonAccessory(
+                buildPanelButton(
+                    CUSTOM_IDS.partnerships,
+                    'Partner',
+                    '🤝',
+                ),
+            ),
     );
 
-    // Divider after Partnerships.
+    /*
+     * Divider after Partnerships.
+     */
+
     container.addSeparatorComponents(
         new SeparatorBuilder().setDivider(true),
     );
 
     /*
-     * OPTIONAL IMAGE
-     *
-     * Put the image URL into config.tickets.panelImageUrl
-     * when you're ready.
+     * OPTIONAL PANEL IMAGE
      */
 
     if (config.tickets.panelImageUrl) {
@@ -463,8 +488,8 @@ function buildTicketPanel() {
     /*
      * Hidden marker.
      *
-     * This lets the bot find its own panel on every restart
-     * without relying on message IDs.
+     * The bot searches Discord for this marker on every
+     * startup, so restarts do not create duplicate panels.
      */
 
     container.addTextDisplayComponents(
@@ -506,7 +531,7 @@ async function ensureTicketPanel(client) {
 
     if (existingPanel) {
         console.log(
-            '[Eclipse Tickets] Existing ticket panel found. No new panel will be sent.',
+            `[Eclipse Tickets] Existing ticket panel found (${existingPanel.id}). No new panel will be sent.`,
         );
 
         return existingPanel;
@@ -531,7 +556,7 @@ async function ensureTicketPanel(client) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* LOGGING                                                                    */
+/* CENTRAL LOGGING                                                            */
 /* -------------------------------------------------------------------------- */
 
 async function sendCentralLog(
@@ -579,17 +604,18 @@ async function sendCentralLog(
                     value:
                         `\`${truncate(
                             ticket.channelName ||
-                            ticket.channelId ||
-                            'Unknown',
+                                ticket.channelId ||
+                                'Unknown',
                             100,
                         )}\``,
                     inline: true,
                 },
                 {
                     name: 'Type',
-                    value: formatTicketType(
-                        ticket.type,
-                    ),
+                    value:
+                        formatTicketType(
+                            ticket.type,
+                        ),
                     inline: true,
                 },
                 {
@@ -604,9 +630,10 @@ async function sendCentralLog(
             if (ticket.userId) {
                 embed.addFields({
                     name: 'Opened By',
-                    value: formatUser(
-                        ticket.userId,
-                    ),
+                    value:
+                        formatUser(
+                            ticket.userId,
+                        ),
                     inline: true,
                 });
             }
@@ -624,7 +651,8 @@ async function sendCentralLog(
             if (ticket.channelId) {
                 embed.addFields({
                     name: 'Channel',
-                    value: `<#${ticket.channelId}>`,
+                    value:
+                        `<#${ticket.channelId}>`,
                     inline: true,
                 });
             }
@@ -633,7 +661,8 @@ async function sendCentralLog(
         if (user) {
             embed.addFields({
                 name: 'User',
-                value: formatUser(user),
+                value:
+                    formatUser(user),
                 inline: true,
             });
         }
@@ -641,9 +670,8 @@ async function sendCentralLog(
         if (moderator) {
             embed.addFields({
                 name: 'Staff',
-                value: formatUser(
-                    moderator,
-                ),
+                value:
+                    formatUser(moderator),
                 inline: true,
             });
         }
@@ -651,7 +679,8 @@ async function sendCentralLog(
         if (reason) {
             embed.addFields({
                 name: 'Reason',
-                value: truncate(reason),
+                value:
+                    truncate(reason),
                 inline: false,
             });
         }
@@ -663,11 +692,14 @@ async function sendCentralLog(
 
             embed.addFields({
                 name: field.name,
-                value: truncate(
-                    field.value ?? 'N/A',
-                ),
+                value:
+                    truncate(
+                        field.value ??
+                            'N/A',
+                    ),
                 inline:
-                    field.inline ?? false,
+                    field.inline ??
+                    false,
             });
         }
 
@@ -680,7 +712,7 @@ async function sendCentralLog(
         });
     } catch (error) {
         console.error(
-            '[Eclipse Tickets] Failed to send log:',
+            '[Eclipse Tickets] Failed to send central log:',
             error,
         );
     }
@@ -695,7 +727,9 @@ function buildTicketMessage(
     memberMention,
 ) {
     const priority =
-        formatPriority(ticket.priority);
+        formatPriority(
+            ticket.priority,
+        );
 
     const supportRoleId =
         getSupportRoleId();
@@ -731,7 +765,9 @@ function buildTicketMessage(
             )}\n` +
             `**Information:** ${
                 ticket.question ||
-                TICKET_TYPES[ticket.type]?.question ||
+                TICKET_TYPES[
+                    ticket.type
+                ]?.question ||
                 'N/A'
             }\n` +
             `**Status:** 🟢 Open\n` +
@@ -883,13 +919,15 @@ async function createTicketChannel(
         Number(openCount || 0) >=
         Number(
             config.tickets
-                .maxOpenTicketsPerUser || 3,
+                .maxOpenTicketsPerUser ||
+                3,
         )
     ) {
         throw new Error(
             `You already have the maximum of ${
                 config.tickets
-                    .maxOpenTicketsPerUser || 3
+                    .maxOpenTicketsPerUser ||
+                3
             } open tickets.`,
         );
     }
@@ -909,20 +947,35 @@ async function createTicketChannel(
 
     const overwrites = [
         {
-            id: guild.roles.everyone.id,
+            id:
+                guild.roles
+                    .everyone.id,
+
             deny: [
-                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits
+                    .ViewChannel,
             ],
         },
 
         {
-            id: interaction.user.id,
+            id:
+                interaction.user.id,
+
             allow: [
-                PermissionFlagsBits.ViewChannel,
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.ReadMessageHistory,
-                PermissionFlagsBits.AttachFiles,
-                PermissionFlagsBits.EmbedLinks,
+                PermissionFlagsBits
+                    .ViewChannel,
+
+                PermissionFlagsBits
+                    .SendMessages,
+
+                PermissionFlagsBits
+                    .ReadMessageHistory,
+
+                PermissionFlagsBits
+                    .AttachFiles,
+
+                PermissionFlagsBits
+                    .EmbedLinks,
             ],
         },
     ];
@@ -930,13 +983,25 @@ async function createTicketChannel(
     if (supportRoleId) {
         overwrites.push({
             id: supportRoleId,
+
             allow: [
-                PermissionFlagsBits.ViewChannel,
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.ReadMessageHistory,
-                PermissionFlagsBits.ManageMessages,
-                PermissionFlagsBits.AttachFiles,
-                PermissionFlagsBits.EmbedLinks,
+                PermissionFlagsBits
+                    .ViewChannel,
+
+                PermissionFlagsBits
+                    .SendMessages,
+
+                PermissionFlagsBits
+                    .ReadMessageHistory,
+
+                PermissionFlagsBits
+                    .ManageMessages,
+
+                PermissionFlagsBits
+                    .AttachFiles,
+
+                PermissionFlagsBits
+                    .EmbedLinks,
             ],
         });
     }
@@ -944,14 +1009,28 @@ async function createTicketChannel(
     if (botMember) {
         overwrites.push({
             id: botMember.id,
+
             allow: [
-                PermissionFlagsBits.ViewChannel,
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.ReadMessageHistory,
-                PermissionFlagsBits.ManageChannels,
-                PermissionFlagsBits.ManageMessages,
-                PermissionFlagsBits.AttachFiles,
-                PermissionFlagsBits.EmbedLinks,
+                PermissionFlagsBits
+                    .ViewChannel,
+
+                PermissionFlagsBits
+                    .SendMessages,
+
+                PermissionFlagsBits
+                    .ReadMessageHistory,
+
+                PermissionFlagsBits
+                    .ManageChannels,
+
+                PermissionFlagsBits
+                    .ManageMessages,
+
+                PermissionFlagsBits
+                    .AttachFiles,
+
+                PermissionFlagsBits
+                    .EmbedLinks,
             ],
         });
     }
@@ -960,28 +1039,42 @@ async function createTicketChannel(
         await guild.channels.create({
             name: channelName,
             type: ChannelType.GuildText,
+
             parent:
-                config.tickets.categoryId,
+                config.tickets
+                    .categoryId,
+
             topic:
                 getTicketTopic(
                     type,
                     interaction.user.id,
                 ),
+
             permissionOverwrites:
                 overwrites,
         });
 
     const ticket =
         await createTicket({
-            guildId: guild.id,
-            channelId: channel.id,
+            guildId:
+                guild.id,
+
+            channelId:
+                channel.id,
+
             channelName,
+
             userId:
                 interaction.user.id,
+
             username:
                 interaction.user.username,
+
             type,
-            priority: 'low',
+
+            priority:
+                'low',
+
             question:
                 ticketType.question,
         });
@@ -989,7 +1082,8 @@ async function createTicketChannel(
     const freshTicket = {
         ...(ticket || {}),
 
-        guildId: guild.id,
+        guildId:
+            guild.id,
 
         channelId:
             channel.id,
@@ -1004,18 +1098,21 @@ async function createTicketChannel(
 
         type,
 
-        priority: 'low',
+        priority:
+            'low',
 
         question:
             ticketType.question,
 
-        claimedBy: null,
+        claimedBy:
+            null,
     };
 
     const allowedMentions = {
         users: [
             interaction.user.id,
         ],
+
         roles: supportRoleId
             ? [supportRoleId]
             : [],
@@ -1038,16 +1135,20 @@ async function createTicketChannel(
     await sendCentralLog(
         interaction.client,
         {
-            action: 'Ticket Opened',
+            action:
+                'Ticket Opened',
 
-            ticket: freshTicket,
+            ticket:
+                freshTicket,
 
             user:
                 interaction.user.id,
 
             extraFields: [
                 {
-                    name: 'Category',
+                    name:
+                        'Category',
+
                     value:
                         formatTicketType(
                             type,
@@ -1055,7 +1156,8 @@ async function createTicketChannel(
                 },
             ],
 
-            level: 'success',
+            level:
+                'success',
         },
     );
 
@@ -1111,6 +1213,7 @@ async function refreshTicketMessage(
                 `<@${ticket.userId}>`,
             ),
         ],
+
         flags:
             MessageFlags.IsComponentsV2,
     });
@@ -1200,7 +1303,7 @@ async function showTeamSelection(
                         'GFX/VFX Roster',
 
                     description:
-                        'Click to open a ticket as part of the production team.',
+                        'Click to open a ticket to join as part of the production team.',
 
                     value:
                         'production',
@@ -1213,7 +1316,7 @@ async function showTeamSelection(
                         'Content/Streamer Roster',
 
                     description:
-                        'Click to open a ticket as part of the Content team.',
+                        'Click to open a ticket to join as part of the Content team.',
 
                     value:
                         'content',
@@ -1267,7 +1370,8 @@ async function handleClaim(
 
     const isManager =
         interaction.member.permissions.has(
-            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits
+                .ManageChannels,
         );
 
     if (!isSupport && !isManager) {
@@ -1316,7 +1420,8 @@ async function handleClaim(
                 action:
                     'Ticket Unclaimed',
 
-                ticket: fresh,
+                ticket:
+                    fresh,
 
                 moderator:
                     interaction.user.id,
@@ -1361,7 +1466,8 @@ async function handleClaim(
             action:
                 'Ticket Claimed',
 
-            ticket: fresh,
+            ticket:
+                fresh,
 
             moderator:
                 interaction.user.id,
@@ -1409,7 +1515,8 @@ async function handlePriority(
 
     const isManager =
         interaction.member.permissions.has(
-            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits
+                .ManageChannels,
         );
 
     if (!isSupport && !isManager) {
@@ -1431,25 +1538,37 @@ async function handlePriority(
             .addOptions(
                 {
                     label: 'Low',
+
                     description:
                         'Normal ticket priority.',
-                    value: 'low',
+
+                    value:
+                        'low',
+
                     emoji: '🟢',
                 },
 
                 {
                     label: 'High',
+
                     description:
                         'Ticket requires increased attention.',
-                    value: 'high',
+
+                    value:
+                        'high',
+
                     emoji: '🟠',
                 },
 
                 {
                     label: 'Urgent',
+
                     description:
                         'Ticket requires immediate attention.',
-                    value: 'urgent',
+
+                    value:
+                        'urgent',
+
                     emoji: '🚨',
                 },
             );
@@ -1477,6 +1596,7 @@ async function handlePrioritySelection(
         return interaction.update({
             content:
                 'Invalid priority.',
+
             components: [],
         });
     }
@@ -1490,6 +1610,7 @@ async function handlePrioritySelection(
         return interaction.update({
             content:
                 'This is not a registered Eclipse ticket.',
+
             components: [],
         });
     }
@@ -1532,7 +1653,8 @@ async function handlePrioritySelection(
             action:
                 'Ticket Priority Changed',
 
-            ticket: fresh,
+            ticket:
+                fresh,
 
             moderator:
                 interaction.user.id,
@@ -1596,7 +1718,8 @@ async function handleClose(
 
     const isManager =
         interaction.member.permissions.has(
-            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits
+                .ManageChannels,
         );
 
     const isOpener =
@@ -1673,11 +1796,18 @@ export async function registerTicketSystem(
     client,
 ) {
     /*
-     * Automatically check/send the panel every startup.
+     * Discord.js v15:
+     * "ready" was renamed to "clientReady".
+     *
+     * On every bot startup:
+     * 1. Fetch the panel channel.
+     * 2. Search the complete message history.
+     * 3. If an Eclipse panel exists, do nothing.
+     * 4. If it doesn't exist, create exactly one.
      */
 
     client.once(
-        'ready',
+        'clientReady',
         async () => {
             try {
                 await ensureTicketPanel(
@@ -1795,7 +1925,9 @@ export async function registerTicketSystem(
                             {
                                 content:
                                     'Something went wrong while processing that ticket action.',
-                                ephemeral: true,
+
+                                ephemeral:
+                                    true,
                             },
                         );
                     } else {
@@ -1803,7 +1935,9 @@ export async function registerTicketSystem(
                             {
                                 content:
                                     'Something went wrong while processing that ticket action.',
-                                ephemeral: true,
+
+                                ephemeral:
+                                    true,
                             },
                         );
                     }
