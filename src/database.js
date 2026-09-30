@@ -6,35 +6,55 @@ const { Pool } = pg;
 
 const pool = new Pool({
     connectionString: config.database.url,
+
     ssl: {
         rejectUnauthorized: false,
     },
+
     max: 10,
+
     idleTimeoutMillis: 30_000,
+
     connectionTimeoutMillis: 10_000,
 });
 
 let initialized = false;
+
+/* -------------------------------------------------------------------------- */
+/* DATABASE INITIALIZATION                                                    */
+/* -------------------------------------------------------------------------- */
 
 export async function initializeDatabase() {
     if (initialized) {
         return;
     }
 
+    /*
+     * Create the table if it does not exist.
+     *
+     * IMPORTANT:
+     * CREATE TABLE IF NOT EXISTS does NOT modify an existing table.
+     * The migrations below handle older Eclipse databases.
+     */
+
     await pool.query(`
         CREATE TABLE IF NOT EXISTS eclipse_tickets (
             id BIGSERIAL PRIMARY KEY,
 
             guild_id TEXT NOT NULL,
+
             channel_id TEXT UNIQUE NOT NULL,
-            channel_name TEXT NOT NULL,
+
+            channel_name TEXT,
 
             user_id TEXT NOT NULL,
+
             username TEXT NOT NULL,
 
             type TEXT NOT NULL,
 
             question TEXT,
+
             priority TEXT NOT NULL DEFAULT 'low',
 
             claimed_by TEXT,
@@ -42,12 +62,125 @@ export async function initializeDatabase() {
             status TEXT NOT NULL DEFAULT 'open',
 
             opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
             claimed_at TIMESTAMPTZ,
+
             closed_at TIMESTAMPTZ,
 
             closed_by TEXT
         );
     `);
+
+    /*
+     * ----------------------------------------------------------------------
+     * SAFE MIGRATIONS
+     * ----------------------------------------------------------------------
+     *
+     * These are safe to run every time the bot starts.
+     *
+     * They fix databases created by older versions of the bot.
+     */
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS guild_id TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS channel_id TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS channel_name TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS user_id TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS username TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS type TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS question TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'low';
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS claimed_by TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ DEFAULT NOW();
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS closed_by TEXT;
+    `);
+
+    /*
+     * Older rows may have NULL channel names after the migration.
+     * Fill them from the Discord channel ID so they don't break anything.
+     */
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET channel_name = channel_id
+        WHERE channel_name IS NULL;
+    `);
+
+    /*
+     * Older rows may have NULL priorities/status values.
+     */
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET priority = 'low'
+        WHERE priority IS NULL;
+    `);
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET status = 'open'
+        WHERE status IS NULL;
+    `);
+
+    /*
+     * Indexes.
+     */
 
     await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_eclipse_tickets_guild
@@ -69,16 +202,34 @@ export async function initializeDatabase() {
         ON eclipse_tickets(channel_id);
     `);
 
+    /*
+     * Unique channel ID index/constraint.
+     *
+     * Only create it if channel_id isn't already covered by a
+     * unique constraint/index.
+     */
+
+    await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_eclipse_tickets_channel_unique
+        ON eclipse_tickets(channel_id);
+    `);
+
     initialized = true;
 
-    console.log('[Eclipse Database] PostgreSQL database initialized.');
+    console.log(
+        '[Eclipse Database] PostgreSQL database initialized.',
+    );
 }
 
 /* -------------------------------------------------------------------------- */
 /* TICKETS                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export async function countOpenTickets(guildId, userId) {
+export async function countOpenTickets(
+    guildId,
+    userId,
+) {
     const result = await pool.query(
         `
         SELECT COUNT(*)::int AS count
@@ -87,11 +238,18 @@ export async function countOpenTickets(guildId, userId) {
           AND user_id = $2
           AND status = 'open'
         `,
-        [guildId, userId],
+        [
+            guildId,
+            userId,
+        ],
     );
 
     return result.rows[0]?.count ?? 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* CREATE TICKET                                                              */
+/* -------------------------------------------------------------------------- */
 
 export async function createTicket({
     guildId,
@@ -144,7 +302,13 @@ export async function createTicket({
     return result.rows[0] || null;
 }
 
-export async function getTicket(channelId) {
+/* -------------------------------------------------------------------------- */
+/* GET TICKET                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export async function getTicket(
+    channelId,
+) {
     const result = await pool.query(
         `
         SELECT *
@@ -152,13 +316,22 @@ export async function getTicket(channelId) {
         WHERE channel_id = $1
         LIMIT 1
         `,
-        [channelId],
+        [
+            channelId,
+        ],
     );
 
     return result.rows[0] || null;
 }
 
-export async function claimTicket(channelId, userId) {
+/* -------------------------------------------------------------------------- */
+/* CLAIM                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export async function claimTicket(
+    channelId,
+    userId,
+) {
     const result = await pool.query(
         `
         UPDATE eclipse_tickets
@@ -178,7 +351,13 @@ export async function claimTicket(channelId, userId) {
     return result.rows[0] || null;
 }
 
-export async function unclaimTicket(channelId) {
+/* -------------------------------------------------------------------------- */
+/* UNCLAIM                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function unclaimTicket(
+    channelId,
+) {
     const result = await pool.query(
         `
         UPDATE eclipse_tickets
@@ -189,11 +368,17 @@ export async function unclaimTicket(channelId) {
           AND status = 'open'
         RETURNING *
         `,
-        [channelId],
+        [
+            channelId,
+        ],
     );
 
     return result.rows[0] || null;
 }
+
+/* -------------------------------------------------------------------------- */
+/* PRIORITY                                                                   */
+/* -------------------------------------------------------------------------- */
 
 export async function setTicketPriority(
     channelId,
@@ -228,6 +413,10 @@ export async function setTicketPriority(
     return result.rows[0] || null;
 }
 
+/* -------------------------------------------------------------------------- */
+/* CLOSE                                                                      */
+/* -------------------------------------------------------------------------- */
+
 export async function closeTicket(
     channelId,
     closedBy = null,
@@ -253,7 +442,7 @@ export async function closeTicket(
 }
 
 /* -------------------------------------------------------------------------- */
-/* EXTRA HELPERS                                                              */
+/* OPEN TICKETS                                                               */
 /* -------------------------------------------------------------------------- */
 
 export async function getOpenTickets(
@@ -267,11 +456,17 @@ export async function getOpenTickets(
           AND status = 'open'
         ORDER BY opened_at ASC
         `,
-        [guildId],
+        [
+            guildId,
+        ],
     );
 
     return result.rows;
 }
+
+/* -------------------------------------------------------------------------- */
+/* USER OPEN TICKETS                                                          */
+/* -------------------------------------------------------------------------- */
 
 export async function getUserOpenTickets(
     guildId,
@@ -295,6 +490,10 @@ export async function getUserOpenTickets(
     return result.rows;
 }
 
+/* -------------------------------------------------------------------------- */
+/* ALL TICKETS                                                                */
+/* -------------------------------------------------------------------------- */
+
 export async function getAllTickets(
     guildId,
 ) {
@@ -305,11 +504,17 @@ export async function getAllTickets(
         WHERE guild_id = $1
         ORDER BY opened_at DESC
         `,
-        [guildId],
+        [
+            guildId,
+        ],
     );
 
     return result.rows;
 }
+
+/* -------------------------------------------------------------------------- */
+/* DELETE TICKET                                                              */
+/* -------------------------------------------------------------------------- */
 
 export async function deleteTicket(
     channelId,
@@ -320,7 +525,9 @@ export async function deleteTicket(
         WHERE channel_id = $1
         RETURNING *
         `,
-        [channelId],
+        [
+            channelId,
+        ],
     );
 
     return result.rows[0] || null;
@@ -331,20 +538,36 @@ export async function deleteTicket(
 /* -------------------------------------------------------------------------- */
 
 export async function checkDatabaseConnection() {
-    const result = await pool.query('SELECT NOW() AS now');
+    const result = await pool.query(
+        'SELECT NOW() AS now',
+    );
 
     return {
         connected: true,
-        timestamp: result.rows[0]?.now ?? null,
+        timestamp:
+            result.rows[0]?.now ?? null,
     };
 }
+
+/* -------------------------------------------------------------------------- */
+/* CLOSE DATABASE                                                             */
+/* -------------------------------------------------------------------------- */
 
 export async function closeDatabase() {
     await pool.end();
 
     initialized = false;
 
-    console.log('[Eclipse Database] PostgreSQL connection closed.');
+    console.log(
+        '[Eclipse Database] PostgreSQL connection closed.',
+    );
 }
 
-export { pool };
+/* -------------------------------------------------------------------------- */
+/* EXPORT POOL                                                                */
+/* -------------------------------------------------------------------------- */
+
+export {
+    pool,
+};
+
