@@ -1,920 +1,794 @@
 import {
+    EmbedBuilder,
     PermissionFlagsBits,
     SlashCommandBuilder,
 } from 'discord.js';
 
 import { config } from './config.js';
 
-export async function registerModeration(client) {
-    const commands = [
-        new SlashCommandBuilder()
-            .setName('time')
-            .setDescription(
-                'Timeout a member.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.ModerateMembers.toString(),
-            )
-            .addUserOption(
-                (option) =>
-                    option
-                        .setName('user')
-                        .setDescription(
-                            'The member to timeout.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('duration')
-                        .setDescription(
-                            'Duration, e.g. 10m, 1h, 1d.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('reason')
-                        .setDescription(
-                            'Reason for the timeout.',
-                        )
-                        .setRequired(false),
-            ),
-
-        new SlashCommandBuilder()
-            .setName('untime')
-            .setDescription(
-                'Remove a timeout from a member.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.ModerateMembers.toString(),
-            )
-            .addUserOption(
-                (option) =>
-                    option
-                        .setName('user')
-                        .setDescription(
-                            'The member.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('reason')
-                        .setDescription(
-                            'Reason for removing the timeout.',
-                        )
-                        .setRequired(false),
-            ),
-
-        new SlashCommandBuilder()
-            .setName('kick')
-            .setDescription(
-                'Kick a member.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.KickMembers.toString(),
-            )
-            .addUserOption(
-                (option) =>
-                    option
-                        .setName('user')
-                        .setDescription(
-                            'The member to kick.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('reason')
-                        .setDescription(
-                            'Reason for the kick.',
-                        )
-                        .setRequired(false),
-            ),
-
-        new SlashCommandBuilder()
-            .setName('ban')
-            .setDescription(
-                'Ban a member.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.BanMembers.toString(),
-            )
-            .addUserOption(
-                (option) =>
-                    option
-                        .setName('user')
-                        .setDescription(
-                            'The member to ban.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('reason')
-                        .setDescription(
-                            'Reason for the ban.',
-                        )
-                        .setRequired(false),
-            ),
-
-        new SlashCommandBuilder()
-            .setName('unban')
-            .setDescription(
-                'Unban a user.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.BanMembers.toString(),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('user')
-                        .setDescription(
-                            'The user ID to unban.',
-                        )
-                        .setRequired(true),
-            )
-            .addStringOption(
-                (option) =>
-                    option
-                        .setName('reason')
-                        .setDescription(
-                            'Reason for the unban.',
-                        )
-                        .setRequired(false),
-            ),
-
-        new SlashCommandBuilder()
-            .setName('purge')
-            .setDescription(
-                'Delete messages from this channel.',
-            )
-            .setDefaultMemberPermissions(
-                PermissionFlagsBits.ManageMessages.toString(),
-            )
-            .addIntegerOption(
-                (option) =>
-                    option
-                        .setName('amount')
-                        .setDescription(
-                            'Number of messages to delete (1-100).',
-                        )
-                        .setMinValue(1)
-                        .setMaxValue(
-                            config.moderation.maxPurge,
-                        )
-                        .setRequired(true),
-            ),
-    ];
-
-    /*
-     * Register commands to the configured guild.
-     */
-
-    const guild =
-        await client.guilds.fetch(
-            config.discord.guildId,
-        );
-
-    await guild.commands.set(
-        commands.map((command) =>
-            command.toJSON(),
+const moderationCommands = [
+    new SlashCommandBuilder()
+        .setName('time')
+        .setDescription('Timeout a member.')
+        .addUserOption((option) =>
+            option
+                .setName('user')
+                .setDescription('The member to timeout.')
+                .setRequired(true),
+        )
+        .addStringOption((option) =>
+            option
+                .setName('duration')
+                .setDescription('Duration: 10m, 1h, 12h, 1d, 7d.')
+                .setRequired(true),
+        )
+        .addStringOption((option) =>
+            option
+                .setName('reason')
+                .setDescription('Reason for the timeout.')
+                .setRequired(false),
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.ModerateMembers,
         ),
-    );
 
-    client.on(
-        'interactionCreate',
-        async (interaction) => {
-            if (
-                !interaction.isChatInputCommand()
-            ) {
-                return;
-            }
-
-            if (
-                ![
-                    'time',
-                    'untime',
-                    'kick',
-                    'ban',
-                    'unban',
-                    'purge',
-                ].includes(
-                    interaction.commandName,
-                )
-            ) {
-                return;
-            }
-
-            try {
-                await handleModeration(
-                    interaction,
-                );
-            } catch (error) {
-                console.error(
-                    '[MODERATION] Error:',
-                    error,
-                );
-
-                if (
-                    interaction.replied ||
-                    interaction.deferred
-                ) {
-                    await interaction.editReply({
-                        content:
-                            'An error occurred while executing that command.',
-                    }).catch(() => {});
-                } else {
-                    await interaction.reply({
-                        content:
-                            'An error occurred while executing that command.',
-                        ephemeral: true,
-                    }).catch(() => {});
-                }
-            }
-        },
-    );
-
-    console.log(
-        '[MODERATION] Commands registered.',
-    );
-}
-
-async function handleModeration(
-    interaction,
-) {
-    switch (
-        interaction.commandName
-    ) {
-        case 'time':
-            await timeoutUser(
-                interaction,
-            );
-            break;
-
-        case 'untime':
-            await untimeoutUser(
-                interaction,
-            );
-            break;
-
-        case 'kick':
-            await kickUser(
-                interaction,
-            );
-            break;
-
-        case 'ban':
-            await banUser(
-                interaction,
-            );
-            break;
-
-        case 'unban':
-            await unbanUser(
-                interaction,
-            );
-            break;
-
-        case 'purge':
-            await purgeMessages(
-                interaction,
-            );
-            break;
-    }
-}
-
-/*
-|--------------------------------------------------------------------------
-| TIMEOUT
-|--------------------------------------------------------------------------
-*/
-
-async function timeoutUser(
-    interaction,
-) {
-    const user =
-        interaction.options.getUser(
-            'user',
-        );
-
-    const duration =
-        interaction.options.getString(
-            'duration',
-        );
-
-    const reason =
-        interaction.options.getString(
-            'reason',
-        ) ||
-        'No reason provided.';
-
-    const member =
-        await interaction.guild.members
-            .fetch(user.id)
-            .catch(() => null);
-
-    if (!member) {
-        await interaction.reply({
-            content:
-                'That user is not in this server.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    if (
-        !canModerate(
-            interaction.member,
-            member,
+    new SlashCommandBuilder()
+        .setName('untime')
+        .setDescription('Remove a timeout from a member.')
+        .addUserOption((option) =>
+            option
+                .setName('user')
+                .setDescription('The member to untimeout.')
+                .setRequired(true),
         )
-    ) {
-        await interaction.reply({
-            content:
-                'You cannot moderate this member because of role hierarchy.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    const milliseconds =
-        parseDuration(
-            duration,
-        );
-
-    if (!milliseconds) {
-        await interaction.reply({
-            content:
-                'Invalid duration. Use formats such as `10m`, `1h`, `12h`, `1d` or `7d`.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    const maxTimeout =
-        28 * 24 * 60 * 60 * 1000;
-
-    if (
-        milliseconds >
-        maxTimeout
-    ) {
-        await interaction.reply({
-            content:
-                'Discord allows a maximum timeout of 28 days.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    await member.timeout(
-        milliseconds,
-        reason,
-    );
-
-    await interaction.reply({
-        content:
-            `⏱️ ${user} has been timed out for **${formatDuration(milliseconds)}**.\nReason: ${reason}`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `⏱️ **TIMEOUT**\n` +
-        `User: ${user} (${user.id})\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Duration: ${formatDuration(milliseconds)}\n` +
-        `Reason: ${reason}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| UNTIME
-|--------------------------------------------------------------------------
-*/
-
-async function untimeoutUser(
-    interaction,
-) {
-    const user =
-        interaction.options.getUser(
-            'user',
-        );
-
-    const reason =
-        interaction.options.getString(
-            'reason',
-        ) ||
-        'No reason provided.';
-
-    const member =
-        await interaction.guild.members
-            .fetch(user.id)
-            .catch(() => null);
-
-    if (!member) {
-        await interaction.reply({
-            content:
-                'That user is not in this server.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    if (
-        !canModerate(
-            interaction.member,
-            member,
+        .addStringOption((option) =>
+            option
+                .setName('reason')
+                .setDescription('Reason for removing the timeout.')
+                .setRequired(false),
         )
-    ) {
-        await interaction.reply({
-            content:
-                'You cannot moderate this member because of role hierarchy.',
-            ephemeral: true,
-        });
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.ModerateMembers,
+        ),
 
-        return;
-    }
-
-    await member.timeout(
-        null,
-        reason,
-    );
-
-    await interaction.reply({
-        content:
-            `🔓 Timeout removed from ${user}.\nReason: ${reason}`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `🔓 **UNTIMEOUT**\n` +
-        `User: ${user} (${user.id})\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Reason: ${reason}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| KICK
-|--------------------------------------------------------------------------
-*/
-
-async function kickUser(
-    interaction,
-) {
-    const user =
-        interaction.options.getUser(
-            'user',
-        );
-
-    const reason =
-        interaction.options.getString(
-            'reason',
-        ) ||
-        'No reason provided.';
-
-    const member =
-        await interaction.guild.members
-            .fetch(user.id)
-            .catch(() => null);
-
-    if (!member) {
-        await interaction.reply({
-            content:
-                'That user is not in this server.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    if (
-        !canModerate(
-            interaction.member,
-            member,
+    new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Kick a member.')
+        .addUserOption((option) =>
+            option
+                .setName('user')
+                .setDescription('The member to kick.')
+                .setRequired(true),
         )
-    ) {
-        await interaction.reply({
-            content:
-                'You cannot kick this member because of role hierarchy.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    if (!member.kickable) {
-        await interaction.reply({
-            content:
-                'I cannot kick that member. Check my role hierarchy and permissions.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    await member.kick(reason);
-
-    await interaction.reply({
-        content:
-            `👢 ${user} has been kicked.\nReason: ${reason}`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `👢 **KICK**\n` +
-        `User: ${user} (${user.id})\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Reason: ${reason}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| BAN
-|--------------------------------------------------------------------------
-*/
-
-async function banUser(
-    interaction,
-) {
-    const user =
-        interaction.options.getUser(
-            'user',
-        );
-
-    const reason =
-        interaction.options.getString(
-            'reason',
-        ) ||
-        'No reason provided.';
-
-    const member =
-        await interaction.guild.members
-            .fetch(user.id)
-            .catch(() => null);
-
-    if (member) {
-        if (
-            !canModerate(
-                interaction.member,
-                member,
-            )
-        ) {
-            await interaction.reply({
-                content:
-                    'You cannot ban this member because of role hierarchy.',
-                ephemeral: true,
-            });
-
-            return;
-        }
-
-        if (!member.bannable) {
-            await interaction.reply({
-                content:
-                    'I cannot ban that member. Check my role hierarchy and permissions.',
-                ephemeral: true,
-            });
-
-            return;
-        }
-    }
-
-    await interaction.guild.members.ban(
-        user.id,
-        {
-            reason,
-        },
-    );
-
-    await interaction.reply({
-        content:
-            `🔨 ${user} has been banned.\nReason: ${reason}`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `🔨 **BAN**\n` +
-        `User: ${user} (${user.id})\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Reason: ${reason}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| UNBAN
-|--------------------------------------------------------------------------
-*/
-
-async function unbanUser(
-    interaction,
-) {
-    const userId =
-        interaction.options.getString(
-            'user',
-        );
-
-    const reason =
-        interaction.options.getString(
-            'reason',
-        ) ||
-        'No reason provided.';
-
-    if (
-        !/^\d{17,20}$/.test(
-            userId,
+        .addStringOption((option) =>
+            option
+                .setName('reason')
+                .setDescription('Reason for the kick.')
+                .setRequired(false),
         )
-    ) {
-        await interaction.reply({
-            content:
-                'Please provide a valid Discord user ID.',
-            ephemeral: true,
-        });
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.KickMembers,
+        ),
 
-        return;
-    }
+    new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Ban a member.')
+        .addUserOption((option) =>
+            option
+                .setName('user')
+                .setDescription('The member to ban.')
+                .setRequired(true),
+        )
+        .addStringOption((option) =>
+            option
+                .setName('reason')
+                .setDescription('Reason for the ban.')
+                .setRequired(false),
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.BanMembers,
+        ),
 
-    await interaction.guild.members.unban(
-        userId,
-        reason,
+    new SlashCommandBuilder()
+        .setName('unban')
+        .setDescription('Unban a user.')
+        .addStringOption((option) =>
+            option
+                .setName('user')
+                .setDescription('The Discord user ID to unban.')
+                .setRequired(true),
+        )
+        .addStringOption((option) =>
+            option
+                .setName('reason')
+                .setDescription('Reason for the unban.')
+                .setRequired(false),
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.BanMembers,
+        ),
+
+    new SlashCommandBuilder()
+        .setName('purge')
+        .setDescription('Delete messages in the current channel.')
+        .addIntegerOption((option) =>
+            option
+                .setName('amount')
+                .setDescription('Number of messages to delete, 1-100.')
+                .setMinValue(1)
+                .setMaxValue(100)
+                .setRequired(true),
+        )
+        .setDefaultMemberPermissions(
+            PermissionFlagsBits.ManageMessages,
+        ),
+];
+
+function parseDuration(input) {
+    const value = String(input)
+        .trim()
+        .toLowerCase();
+
+    const match = value.match(
+        /^(\d+)\s*(s|m|h|d|w)$/,
     );
-
-    await interaction.reply({
-        content:
-            `🔓 User \`${userId}\` has been unbanned.\nReason: ${reason}`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `🔓 **UNBAN**\n` +
-        `User ID: ${userId}\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Reason: ${reason}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| PURGE
-|--------------------------------------------------------------------------
-*/
-
-async function purgeMessages(
-    interaction,
-) {
-    const amount =
-        interaction.options.getInteger(
-            'amount',
-        );
-
-    if (
-        !interaction.channel ||
-        !interaction.channel.isTextBased()
-    ) {
-        await interaction.reply({
-            content:
-                'This command can only be used in a text channel.',
-            ephemeral: true,
-        });
-
-        return;
-    }
-
-    await interaction.deferReply({
-        ephemeral: true,
-    });
-
-    const deleted =
-        await interaction.channel.bulkDelete(
-            amount,
-            true,
-        );
-
-    await interaction.editReply({
-        content:
-            `🧹 Deleted **${deleted.size}** message(s).`,
-    });
-
-    await sendModerationLog(
-        interaction,
-        `🧹 **PURGE**\n` +
-        `Channel: ${interaction.channel}\n` +
-        `Moderator: ${interaction.user}\n` +
-        `Requested: ${amount}\n` +
-        `Deleted: ${deleted.size}`,
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| ROLE HIERARCHY
-|--------------------------------------------------------------------------
-*/
-
-function canModerate(
-    moderator,
-    target,
-) {
-    if (
-        moderator.id ===
-        target.id
-    ) {
-        return false;
-    }
-
-    if (
-        target.id ===
-        moderator.guild.ownerId
-    ) {
-        return false;
-    }
-
-    if (
-        moderator.id ===
-        moderator.guild.ownerId
-    ) {
-        return true;
-    }
-
-    return (
-        moderator.roles.highest.position >
-        target.roles.highest.position
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| DURATION
-|--------------------------------------------------------------------------
-*/
-
-function parseDuration(
-    input,
-) {
-    const match =
-        /^(\d+)\s*(s|m|h|d|w)$/i.exec(
-            input.trim(),
-        );
 
     if (!match) {
         return null;
     }
 
-    const amount =
-        Number(match[1]);
+    const amount = Number(match[1]);
+    const unit = match[2];
 
-    const unit =
-        match[2].toLowerCase();
-
-    const units = {
+    const multipliers = {
         s: 1000,
-
-        m:
-            60 *
-            1000,
-
-        h:
-            60 *
-            60 *
-            1000,
-
-        d:
-            24 *
-            60 *
-            60 *
-            1000,
-
-        w:
-            7 *
-            24 *
-            60 *
-            60 *
-            1000,
+        m: 60 * 1000,
+        h: 60 * 60 * 1000,
+        d: 24 * 60 * 60 * 1000,
+        w: 7 * 24 * 60 * 60 * 1000,
     };
 
-    return (
-        amount *
-        units[unit]
-    );
+    const duration = amount * multipliers[unit];
+
+    const maxDuration = 28 * 24 * 60 * 60 * 1000;
+
+    if (
+        !Number.isFinite(duration) ||
+        duration <= 0 ||
+        duration > maxDuration
+    ) {
+        return null;
+    }
+
+    return duration;
 }
 
-function formatDuration(
-    milliseconds,
-) {
-    const seconds =
-        Math.floor(
-            milliseconds / 1000,
-        );
+function formatDuration(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
 
-    const days =
-        Math.floor(
-            seconds / 86400,
-        );
-
-    const hours =
-        Math.floor(
-            (seconds % 86400) /
-            3600,
-        );
-
-    const minutes =
-        Math.floor(
-            (seconds % 3600) /
-            60,
-        );
-
-    const secs =
-        seconds % 60;
-
-    const parts = [];
-
-    if (days) {
-        parts.push(
-            `${days}d`,
-        );
+    if (seconds % (7 * 24 * 60 * 60) === 0) {
+        return `${seconds / (7 * 24 * 60 * 60)}w`;
     }
 
-    if (hours) {
-        parts.push(
-            `${hours}h`,
-        );
+    if (seconds % (24 * 60 * 60) === 0) {
+        return `${seconds / (24 * 60 * 60)}d`;
     }
 
-    if (minutes) {
-        parts.push(
-            `${minutes}m`,
-        );
+    if (seconds % (60 * 60) === 0) {
+        return `${seconds / (60 * 60)}h`;
+    }
+
+    if (seconds % 60 === 0) {
+        return `${seconds / 60}m`;
+    }
+
+    return `${seconds}s`;
+}
+
+function truncate(value, length = 1024) {
+    const text = String(value ?? 'N/A');
+
+    if (text.length <= length) {
+        return text;
+    }
+
+    return `${text.slice(0, length - 3)}...`;
+}
+
+function formatUser(user) {
+    if (!user) {
+        return 'N/A';
+    }
+
+    return `${user} (<@${user}>)`;
+}
+
+function canModerate(executorMember, targetMember) {
+    if (!targetMember) {
+        return true;
+    }
+
+    if (executorMember.id === targetMember.id) {
+        return false;
     }
 
     if (
-        secs &&
-        parts.length < 2
+        targetMember.id === executorMember.guild.ownerId
     ) {
-        parts.push(
-            `${secs}s`,
-        );
+        return false;
     }
 
-    return (
-        parts.join(' ') ||
-        '0s'
-    );
+    if (
+        executorMember.id !== executorMember.guild.ownerId &&
+        targetMember.roles.highest.position >=
+            executorMember.roles.highest.position
+    ) {
+        return false;
+    }
+
+    return true;
 }
 
-/*
-|--------------------------------------------------------------------------
-| MODERATION LOG
-|--------------------------------------------------------------------------
-*/
-
-async function sendModerationLog(
-    interaction,
-    content,
-) {
-    const guild =
-        interaction.guild;
-
-    if (!guild) {
-        return;
-    }
-
-    const channel =
-        guild.channels.cache.get(
+async function sendModerationLog(client, {
+    action,
+    target,
+    moderator,
+    reason,
+    duration,
+    channel,
+    extraFields = [],
+    level = 'danger',
+}) {
+    try {
+        const logChannel = await client.channels.fetch(
             config.moderation.logChannelId,
         );
 
-    if (
-        !channel ||
-        !channel.isTextBased()
-    ) {
-        return;
-    }
+        if (!logChannel?.isTextBased()) {
+            return;
+        }
 
-    await channel.send({
-        content,
+        const colors = {
+            info: 0x5865F2,
+            success: 0x57F287,
+            warning: 0xFEE75C,
+            danger: 0xED4245,
+        };
 
-        allowedMentions: {
-            parse: [],
-        },
-    }).catch((error) => {
+        const embed = new EmbedBuilder()
+            .setColor(colors[level] ?? colors.danger)
+            .setTitle(`Eclipse • ${action}`)
+            .setTimestamp();
+
+        if (target) {
+            embed.addFields({
+                name: 'User',
+                value: formatUser(
+                    typeof target === 'string'
+                        ? target
+                        : target.id,
+                ),
+                inline: true,
+            });
+        }
+
+        if (moderator) {
+            embed.addFields({
+                name: 'Moderator',
+                value: formatUser(
+                    typeof moderator === 'string'
+                        ? moderator
+                        : moderator.id,
+                ),
+                inline: true,
+            });
+        }
+
+        if (duration) {
+            embed.addFields({
+                name: 'Duration',
+                value: duration,
+                inline: true,
+            });
+        }
+
+        if (reason) {
+            embed.addFields({
+                name: 'Reason',
+                value: truncate(reason),
+                inline: false,
+            });
+        }
+
+        if (channel) {
+            embed.addFields({
+                name: 'Channel',
+                value:
+                    typeof channel === 'string'
+                        ? `<#${channel}>`
+                        : `<#${channel.id}>`,
+                inline: true,
+            });
+        }
+
+        for (const field of extraFields) {
+            if (!field?.name) {
+                continue;
+            }
+
+            embed.addFields({
+                name: field.name,
+                value: truncate(field.value ?? 'N/A'),
+                inline: field.inline ?? false,
+            });
+        }
+
+        embed.setFooter({
+            text: 'Eclipse Moderation Logging',
+        });
+
+        await logChannel.send({
+            embeds: [embed],
+        });
+    } catch (error) {
         console.error(
-            '[MODERATION] Log error:',
+            '[Eclipse Moderation] Failed to send moderation log:',
             error,
         );
+    }
+}
+
+async function handleTime(interaction) {
+    const targetUser = interaction.options.getUser('user');
+    const durationInput =
+        interaction.options.getString('duration');
+    const reason =
+        interaction.options.getString('reason') ||
+        'No reason provided.';
+
+    const duration = parseDuration(durationInput);
+
+    if (!duration) {
+        return interaction.reply({
+            content:
+                'Invalid duration. Use values such as `10m`, `1h`, `12h`, `1d`, or `7d`. Maximum duration is 28 days.',
+            ephemeral: true,
+        });
+    }
+
+    const targetMember =
+        await interaction.guild.members
+            .fetch(targetUser.id)
+            .catch(() => null);
+
+    if (!targetMember) {
+        return interaction.reply({
+            content:
+                'That user is not currently a member of this server.',
+            ephemeral: true,
+        });
+    }
+
+    if (!canModerate(interaction.member, targetMember)) {
+        return interaction.reply({
+            content:
+                'You cannot moderate this member because of the Discord role hierarchy.',
+            ephemeral: true,
+        });
+    }
+
+    try {
+        await targetMember.timeout(
+            duration,
+            reason,
+        );
+
+        await interaction.reply({
+            content:
+                `⏱️ ${targetUser} has been timed out for **${formatDuration(duration)}**.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Member Timed Out',
+            target: targetUser.id,
+            moderator: interaction.user.id,
+            reason,
+            duration: formatDuration(duration),
+            channel: interaction.channel.id,
+            level: 'warning',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Timeout failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not timeout that member. Check my permissions and role position.',
+            ephemeral: true,
+        });
+    }
+}
+
+async function handleUntime(interaction) {
+    const targetUser =
+        interaction.options.getUser('user');
+
+    const reason =
+        interaction.options.getString('reason') ||
+        'No reason provided.';
+
+    const targetMember =
+        await interaction.guild.members
+            .fetch(targetUser.id)
+            .catch(() => null);
+
+    if (!targetMember) {
+        return interaction.reply({
+            content:
+                'That user is not currently a member of this server.',
+            ephemeral: true,
+        });
+    }
+
+    if (!canModerate(interaction.member, targetMember)) {
+        return interaction.reply({
+            content:
+                'You cannot moderate this member because of the Discord role hierarchy.',
+            ephemeral: true,
+        });
+    }
+
+    try {
+        await targetMember.timeout(
+            null,
+            reason,
+        );
+
+        await interaction.reply({
+            content:
+                `✅ Timeout removed from ${targetUser}.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Timeout Removed',
+            target: targetUser.id,
+            moderator: interaction.user.id,
+            reason,
+            channel: interaction.channel.id,
+            level: 'success',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Untime failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not remove that timeout.',
+            ephemeral: true,
+        });
+    }
+}
+
+async function handleKick(interaction) {
+    const targetUser =
+        interaction.options.getUser('user');
+
+    const reason =
+        interaction.options.getString('reason') ||
+        'No reason provided.';
+
+    const targetMember =
+        await interaction.guild.members
+            .fetch(targetUser.id)
+            .catch(() => null);
+
+    if (!targetMember) {
+        return interaction.reply({
+            content:
+                'That user is not currently a member of this server.',
+            ephemeral: true,
+        });
+    }
+
+    if (!canModerate(interaction.member, targetMember)) {
+        return interaction.reply({
+            content:
+                'You cannot kick this member because of the Discord role hierarchy.',
+            ephemeral: true,
+        });
+    }
+
+    try {
+        await targetMember.kick(reason);
+
+        await interaction.reply({
+            content:
+                `👢 ${targetUser.tag} has been kicked.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Member Kicked',
+            target: targetUser.id,
+            moderator: interaction.user.id,
+            reason,
+            channel: interaction.channel.id,
+            level: 'danger',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Kick failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not kick that member. Check my permissions and role position.',
+            ephemeral: true,
+        });
+    }
+}
+
+async function handleBan(interaction) {
+    const targetUser =
+        interaction.options.getUser('user');
+
+    const reason =
+        interaction.options.getString('reason') ||
+        'No reason provided.';
+
+    const targetMember =
+        await interaction.guild.members
+            .fetch(targetUser.id)
+            .catch(() => null);
+
+    if (targetMember) {
+        if (!canModerate(interaction.member, targetMember)) {
+            return interaction.reply({
+                content:
+                    'You cannot ban this member because of the Discord role hierarchy.',
+                ephemeral: true,
+            });
+        }
+    }
+
+    try {
+        await interaction.guild.members.ban(
+            targetUser.id,
+            {
+                reason,
+            },
+        );
+
+        await interaction.reply({
+            content:
+                `🔨 ${targetUser.tag} has been banned.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Member Banned',
+            target: targetUser.id,
+            moderator: interaction.user.id,
+            reason,
+            channel: interaction.channel.id,
+            level: 'danger',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Ban failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not ban that user. Check my permissions and role position.',
+            ephemeral: true,
+        });
+    }
+}
+
+async function handleUnban(interaction) {
+    const userId =
+        interaction.options.getString('user');
+
+    const reason =
+        interaction.options.getString('reason') ||
+        'No reason provided.';
+
+    if (!/^\d{17,20}$/.test(userId)) {
+        return interaction.reply({
+            content:
+                'Please provide a valid Discord user ID.',
+            ephemeral: true,
+        });
+    }
+
+    try {
+        await interaction.guild.members.unban(
+            userId,
+            reason,
+        );
+
+        await interaction.reply({
+            content:
+                `✅ <@${userId}> has been unbanned.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Member Unbanned',
+            target: userId,
+            moderator: interaction.user.id,
+            reason,
+            channel: interaction.channel.id,
+            level: 'success',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Unban failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not unban that user. They may not be banned.',
+            ephemeral: true,
+        });
+    }
+}
+
+async function handlePurge(interaction) {
+    const amount =
+        interaction.options.getInteger('amount');
+
+    if (
+        !Number.isInteger(amount) ||
+        amount < 1 ||
+        amount > 100
+    ) {
+        return interaction.reply({
+            content:
+                'Purge amount must be between 1 and 100.',
+            ephemeral: true,
+        });
+    }
+
+    try {
+        const deleted =
+            await interaction.channel.bulkDelete(
+                amount,
+                true,
+            );
+
+        await interaction.reply({
+            content:
+                `🧹 Deleted **${deleted.size}** message${deleted.size === 1 ? '' : 's'}.`,
+            ephemeral: true,
+        });
+
+        await sendModerationLog(interaction.client, {
+            action: 'Messages Purged',
+            moderator: interaction.user.id,
+            channel: interaction.channel.id,
+            extraFields: [
+                {
+                    name: 'Requested',
+                    value: String(amount),
+                    inline: true,
+                },
+                {
+                    name: 'Deleted',
+                    value: String(deleted.size),
+                    inline: true,
+                },
+            ],
+            level: 'warning',
+        });
+    } catch (error) {
+        console.error(
+            '[Eclipse Moderation] Purge failed:',
+            error,
+        );
+
+        await interaction.reply({
+            content:
+                'I could not purge messages in this channel. Check my permissions.',
+            ephemeral: true,
+        });
+    }
+}
+
+export async function registerModeration(client) {
+    client.once('ready', async () => {
+        try {
+            const guild =
+                await client.guilds.fetch(
+                    config.discord.guildId,
+                );
+
+            await guild.commands.set(
+                moderationCommands.map((command) =>
+                    command.toJSON(),
+                ),
+            );
+
+            console.log(
+                '[Eclipse Moderation] Moderation commands registered.',
+            );
+        } catch (error) {
+            console.error(
+                '[Eclipse Moderation] Failed to register commands:',
+                error,
+            );
+        }
+    });
+
+    client.on('interactionCreate', async (interaction) => {
+        if (!interaction.isChatInputCommand()) {
+            return;
+        }
+
+        if (
+            ![
+                'time',
+                'untime',
+                'kick',
+                'ban',
+                'unban',
+                'purge',
+            ].includes(interaction.commandName)
+        ) {
+            return;
+        }
+
+        try {
+            switch (interaction.commandName) {
+                case 'time':
+                    return handleTime(interaction);
+
+                case 'untime':
+                    return handleUntime(interaction);
+
+                case 'kick':
+                    return handleKick(interaction);
+
+                case 'ban':
+                    return handleBan(interaction);
+
+                case 'unban':
+                    return handleUnban(interaction);
+
+                case 'purge':
+                    return handlePurge(interaction);
+
+                default:
+                    return;
+            }
+        } catch (error) {
+            console.error(
+                '[Eclipse Moderation] Command error:',
+                error,
+            );
+
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content:
+                        'Something went wrong while running that moderation command.',
+                    ephemeral: true,
+                });
+            }
+        }
     });
 }
+
+export {
+    moderationCommands,
+    sendModerationLog,
+};
