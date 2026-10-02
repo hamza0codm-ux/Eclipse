@@ -4,12 +4,14 @@ import { config } from './config.js';
 
 const { Pool } = pg;
 
-/* -------------------------------------------------------------------------- */
-/* POOL                                                                       */
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
+/* POSTGRESQL                                                                  */
+/* ========================================================================== */
 
 const pool = new Pool({
-    connectionString: config.database.url,
+    connectionString:
+        config.database.url,
 
     ssl: {
         rejectUnauthorized: false,
@@ -17,283 +19,257 @@ const pool = new Pool({
 
     max: 10,
 
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis:
+        30_000,
 
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis:
+        10_000,
 });
+
 
 let initialized = false;
 
-/* -------------------------------------------------------------------------- */
-/* DATABASE INITIALIZATION                                                    */
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
+/* INITIALIZE DATABASE                                                         */
+/* ========================================================================== */
 
 export async function initializeDatabase() {
     if (initialized) {
         return;
     }
 
-    try {
-        /*
-         * Create the table if it does not already exist.
-         *
-         * IMPORTANT:
-         * CREATE TABLE IF NOT EXISTS does NOT update an existing table.
-         * The migration section below handles old databases.
-         */
+    /*
+     * Create the table if it does not exist.
+     */
 
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS eclipse_tickets (
-                id BIGSERIAL PRIMARY KEY,
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS eclipse_tickets (
+            id BIGSERIAL PRIMARY KEY,
 
-                guild_id TEXT NOT NULL,
+            guild_id TEXT,
+            channel_id TEXT UNIQUE,
+            channel_name TEXT,
 
-                channel_id TEXT UNIQUE NOT NULL,
+            user_id TEXT,
+            username TEXT,
 
-                channel_name TEXT,
+            type TEXT,
 
-                user_id TEXT NOT NULL,
+            question TEXT,
 
-                username TEXT NOT NULL,
+            priority TEXT DEFAULT 'low',
 
-                type TEXT NOT NULL,
+            claimed_by TEXT,
 
-                question TEXT,
+            status TEXT DEFAULT 'open',
 
-                priority TEXT NOT NULL DEFAULT 'low',
+            opened_at TIMESTAMPTZ DEFAULT NOW(),
 
-                claimed_by TEXT,
+            claimed_at TIMESTAMPTZ,
 
-                status TEXT NOT NULL DEFAULT 'open',
+            closed_at TIMESTAMPTZ,
 
-                opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-                claimed_at TIMESTAMPTZ,
-
-                closed_at TIMESTAMPTZ,
-
-                closed_by TEXT
-            );
-        `);
-
-        /*
-         * ------------------------------------------------------------------
-         * SAFE COLUMN MIGRATIONS
-         * ------------------------------------------------------------------
-         */
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS guild_id TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS channel_id TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS channel_name TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS user_id TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS username TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS type TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS question TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS priority TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS claimed_by TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS status TEXT;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
-        `);
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS closed_by TEXT;
-        `);
-
-        /*
-         * ------------------------------------------------------------------
-         * DEFAULT / OLD DATA REPAIR
-         * ------------------------------------------------------------------
-         */
-
-        await pool.query(`
-            UPDATE eclipse_tickets
-            SET priority = 'low'
-            WHERE priority IS NULL;
-        `);
-
-        await pool.query(`
-            UPDATE eclipse_tickets
-            SET status = 'open'
-            WHERE status IS NULL;
-        `);
-
-        await pool.query(`
-            UPDATE eclipse_tickets
-            SET opened_at = NOW()
-            WHERE opened_at IS NULL;
-        `);
-
-        /*
-         * Old records may not have channel_name.
-         * Use the channel ID as a fallback.
-         */
-
-        await pool.query(`
-            UPDATE eclipse_tickets
-            SET channel_name = channel_id
-            WHERE channel_name IS NULL
-              AND channel_id IS NOT NULL;
-        `);
-
-        /*
-         * ------------------------------------------------------------------
-         * INDEXES
-         * ------------------------------------------------------------------
-         */
-
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_eclipse_tickets_guild
-            ON eclipse_tickets(guild_id);
-        `);
-
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_eclipse_tickets_user
-            ON eclipse_tickets(user_id);
-        `);
-
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_eclipse_tickets_status
-            ON eclipse_tickets(status);
-        `);
-
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_eclipse_tickets_channel
-            ON eclipse_tickets(channel_id);
-        `);
-
-        /*
-         * Don't create another unique index if the original UNIQUE
-         * constraint already handles channel_id.
-         *
-         * We check PostgreSQL's catalog first.
-         */
-
-        const uniqueCheck = await pool.query(`
-            SELECT 1
-            FROM pg_constraint
-            WHERE conrelid = 'eclipse_tickets'::regclass
-              AND contype = 'u'
-              AND conkey = ARRAY[
-                  (
-                      SELECT attnum
-                      FROM pg_attribute
-                      WHERE attrelid = 'eclipse_tickets'::regclass
-                        AND attname = 'channel_id'
-                  )
-              ]::smallint[]
-            LIMIT 1;
-        `);
-
-        if (uniqueCheck.rowCount === 0) {
-            await pool.query(`
-                CREATE UNIQUE INDEX IF NOT EXISTS
-                idx_eclipse_tickets_channel_unique
-                ON eclipse_tickets(channel_id);
-            `);
-        }
-
-        initialized = true;
-
-        console.log(
-            '[Eclipse Database] PostgreSQL database initialized.',
+            closed_by TEXT
         );
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Initialization failed.',
-        );
+    `);
 
-        console.error(
-            'PostgreSQL error:',
-            error,
-        );
 
-        console.error(
-            'Error code:',
-            error?.code,
-        );
+    /* ====================================================================== */
+    /* SAFE MIGRATIONS                                                        */
+    /* ====================================================================== */
 
-        console.error(
-            'Error message:',
-            error?.message,
-        );
+    /*
+     * IMPORTANT:
+     *
+     * CREATE TABLE IF NOT EXISTS does NOT modify an existing table.
+     *
+     * These ALTER TABLE statements make sure older Eclipse databases
+     * receive the columns required by the current ticket system.
+     */
 
-        console.error(
-            'Error detail:',
-            error?.detail,
-        );
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS guild_id TEXT;
+    `);
 
-        console.error(
-            'Error hint:',
-            error?.hint,
-        );
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS channel_id TEXT;
+    `);
 
-        throw error;
-    }
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS channel_name TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS user_id TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS username TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS type TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS question TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS priority TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS claimed_by TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS status TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ADD COLUMN IF NOT EXISTS closed_by TEXT;
+    `);
+
+
+    /* ====================================================================== */
+    /* BACKFILL OLD ROWS                                                      */
+    /* ====================================================================== */
+
+    /*
+     * Give older records safe values.
+     */
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET priority = 'low'
+        WHERE priority IS NULL;
+    `);
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET status = 'open'
+        WHERE status IS NULL;
+    `);
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET opened_at = NOW()
+        WHERE opened_at IS NULL;
+    `);
+
+    /*
+     * Older databases may have channel_id but no channel_name.
+     *
+     * Using channel_id as the temporary fallback prevents existing rows
+     * from breaking the migration.
+     */
+
+    await pool.query(`
+        UPDATE eclipse_tickets
+        SET channel_name = channel_id
+        WHERE channel_name IS NULL
+          AND channel_id IS NOT NULL;
+    `);
+
+
+    /* ====================================================================== */
+    /* DEFAULTS                                                               */
+    /* ====================================================================== */
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ALTER COLUMN priority
+        SET DEFAULT 'low';
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ALTER COLUMN status
+        SET DEFAULT 'open';
+    `);
+
+    await pool.query(`
+        ALTER TABLE eclipse_tickets
+        ALTER COLUMN opened_at
+        SET DEFAULT NOW();
+    `);
+
+
+    /* ====================================================================== */
+    /* INDEXES                                                                 */
+    /* ====================================================================== */
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_eclipse_tickets_guild
+        ON eclipse_tickets(guild_id);
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_eclipse_tickets_user
+        ON eclipse_tickets(user_id);
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_eclipse_tickets_status
+        ON eclipse_tickets(status);
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_eclipse_tickets_channel
+        ON eclipse_tickets(channel_id);
+    `);
+
+
+    initialized = true;
+
+    console.log(
+        '[Eclipse Database] PostgreSQL database initialized.',
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* COUNT OPEN TICKETS                                                         */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function countOpenTickets(
     guildId,
     userId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             SELECT COUNT(*)::int AS count
             FROM eclipse_tickets
@@ -307,20 +283,16 @@ export async function countOpenTickets(
             ],
         );
 
-        return result.rows[0]?.count ?? 0;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to count open tickets:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0]?.count ??
+        0
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* CREATE TICKET                                                              */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function createTicket({
     guildId,
@@ -332,36 +304,8 @@ export async function createTicket({
     priority = 'low',
     question = null,
 }) {
-    try {
-        /*
-         * Extra safety:
-         *
-         * If the bot is running against an older database, make sure
-         * channel_name exists before attempting the INSERT.
-         */
-
-        await pool.query(`
-            ALTER TABLE eclipse_tickets
-            ADD COLUMN IF NOT EXISTS channel_name TEXT;
-        `);
-
-        /*
-         * Ensure the priority is always one of the supported values.
-         *
-         * Medium has intentionally been removed.
-         */
-
-        const allowedPriorities = [
-            'low',
-            'high',
-            'urgent',
-        ];
-
-        if (!allowedPriorities.includes(priority)) {
-            priority = 'low';
-        }
-
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             INSERT INTO eclipse_tickets (
                 guild_id,
@@ -399,88 +343,22 @@ export async function createTicket({
             ],
         );
 
-        console.log(
-            `[Eclipse Database] Ticket saved successfully: ${channelId}`,
-        );
-
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '==================================================',
-        );
-
-        console.error(
-            '[Eclipse Database] FAILED TO CREATE TICKET',
-        );
-
-        console.error(
-            'PostgreSQL error:',
-            error,
-        );
-
-        console.error(
-            'Error code:',
-            error?.code,
-        );
-
-        console.error(
-            'Error message:',
-            error?.message,
-        );
-
-        console.error(
-            'Error detail:',
-            error?.detail,
-        );
-
-        console.error(
-            'Error hint:',
-            error?.hint,
-        );
-
-        console.error(
-            'Error constraint:',
-            error?.constraint,
-        );
-
-        console.error(
-            'Ticket data:',
-            {
-                guildId,
-                channelId,
-                channelName,
-                userId,
-                username,
-                type,
-                priority,
-                question,
-            },
-        );
-
-        console.error(
-            '==================================================',
-        );
-
-        /*
-         * VERY IMPORTANT:
-         *
-         * Re-throw the error so tickets.js knows that the database
-         * save actually failed.
-         */
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* GET TICKET                                                                 */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function getTicket(
     channelId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             SELECT *
             FROM eclipse_tickets
@@ -492,27 +370,23 @@ export async function getTicket(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to get ticket:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* CLAIM TICKET                                                               */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function claimTicket(
     channelId,
     userId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             UPDATE eclipse_tickets
             SET
@@ -528,26 +402,22 @@ export async function claimTicket(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to claim ticket:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* UNCLAIM TICKET                                                             */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function unclaimTicket(
     channelId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             UPDATE eclipse_tickets
             SET
@@ -562,20 +432,16 @@ export async function unclaimTicket(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to unclaim ticket:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* SET PRIORITY                                                               */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function setTicketPriority(
     channelId,
@@ -593,8 +459,8 @@ export async function setTicketPriority(
         );
     }
 
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             UPDATE eclipse_tickets
             SET priority = $2
@@ -608,27 +474,23 @@ export async function setTicketPriority(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to change ticket priority:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* CLOSE TICKET                                                               */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function closeTicket(
     channelId,
     closedBy = null,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             UPDATE eclipse_tickets
             SET
@@ -645,26 +507,22 @@ export async function closeTicket(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to close ticket:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* GET OPEN TICKETS                                                           */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function getOpenTickets(
     guildId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             SELECT *
             FROM eclipse_tickets
@@ -677,27 +535,20 @@ export async function getOpenTickets(
             ],
         );
 
-        return result.rows;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to get open tickets:',
-            error,
-        );
-
-        throw error;
-    }
+    return result.rows;
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* GET USER OPEN TICKETS                                                      */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function getUserOpenTickets(
     guildId,
     userId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             SELECT *
             FROM eclipse_tickets
@@ -712,26 +563,19 @@ export async function getUserOpenTickets(
             ],
         );
 
-        return result.rows;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to get user tickets:',
-            error,
-        );
-
-        throw error;
-    }
+    return result.rows;
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* GET ALL TICKETS                                                            */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function getAllTickets(
     guildId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             SELECT *
             FROM eclipse_tickets
@@ -743,26 +587,19 @@ export async function getAllTickets(
             ],
         );
 
-        return result.rows;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to get all tickets:',
-            error,
-        );
-
-        throw error;
-    }
+    return result.rows;
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* DELETE TICKET                                                              */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function deleteTicket(
     channelId,
 ) {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             `
             DELETE FROM eclipse_tickets
             WHERE channel_id = $1
@@ -773,71 +610,51 @@ export async function deleteTicket(
             ],
         );
 
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to delete ticket:',
-            error,
-        );
-
-        throw error;
-    }
+    return (
+        result.rows[0] ||
+        null
+    );
 }
 
-/* -------------------------------------------------------------------------- */
-/* DATABASE HEALTH                                                            */
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
+/* DATABASE CONNECTION CHECK                                                  */
+/* ========================================================================== */
 
 export async function checkDatabaseConnection() {
-    try {
-        const result = await pool.query(
+    const result =
+        await pool.query(
             'SELECT NOW() AS now',
         );
 
-        return {
-            connected: true,
+    return {
+        connected: true,
 
-            timestamp:
-                result.rows[0]?.now ?? null,
-        };
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Database health check failed:',
-            error,
-        );
-
-        return {
-            connected: false,
-
-            timestamp: null,
-        };
-    }
+        timestamp:
+            result.rows[0]?.now ??
+            null,
+    };
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* CLOSE DATABASE                                                             */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export async function closeDatabase() {
-    try {
-        await pool.end();
+    await pool.end();
 
-        initialized = false;
+    initialized = false;
 
-        console.log(
-            '[Eclipse Database] PostgreSQL connection closed.',
-        );
-    } catch (error) {
-        console.error(
-            '[Eclipse Database] Failed to close PostgreSQL:',
-            error,
-        );
-    }
+    console.log(
+        '[Eclipse Database] PostgreSQL connection closed.',
+    );
 }
 
-/* -------------------------------------------------------------------------- */
+
+/* ========================================================================== */
 /* EXPORT POOL                                                                */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export {
     pool,
