@@ -29,18 +29,27 @@ import {
 
 import { config } from './config.js';
 
+/* =========================================================
+   CONFIG
+========================================================= */
 
-/* ========================================================================== */
-/* CONFIG                                                                     */
-/* ========================================================================== */
+const PANEL_CHANNEL_ID =
+    config.tickets?.panelChannelId ||
+    '1554243090460450936';
 
-const PANEL_CHANNEL_ID = '1554243090460450936';
-const TICKET_CATEGORY_ID = '1554805189616214096';
-const LOG_CHANNEL_ID = '1554214604459085875';
+const TICKET_CATEGORY_ID =
+    config.tickets?.categoryId ||
+    '1554805189616214096';
 
-const TEAM_ROLE_ID = '1554540279305084998';
+const LOG_CHANNEL_ID =
+    config.tickets?.logChannelId ||
+    '1554214604459085875';
 
-const STAFF_TICKET_ROLE_ID = '1554221483507843222';
+const TEAM_ROLE_ID =
+    '1554540279305084998';
+
+const STAFF_TICKET_ROLE_ID =
+    '1554221483507843222';
 
 const OWNER_ROLE_IDS = [
     '1554219959251374220',
@@ -59,10 +68,9 @@ const PANEL_IMAGE_URL =
 const PANEL_FOOTER =
     config.tickets?.panelFooter || null;
 
-
-/* ========================================================================== */
-/* CUSTOM IDS                                                                 */
-/* ========================================================================== */
+/* =========================================================
+   CUSTOM IDS
+========================================================= */
 
 const CUSTOM_IDS = {
     staff: 'eclipse_ticket_staff',
@@ -79,10 +87,9 @@ const CUSTOM_IDS = {
     closeReason: 'eclipse_ticket_close_reason',
 };
 
-
-/* ========================================================================== */
-/* PRIORITIES                                                                 */
-/* ========================================================================== */
+/* =========================================================
+   PRIORITIES
+========================================================= */
 
 const PRIORITIES = {
     low: {
@@ -104,10 +111,9 @@ const PRIORITIES = {
     },
 };
 
-
-/* ========================================================================== */
-/* TICKET TYPES                                                               */
-/* ========================================================================== */
+/* =========================================================
+   TICKET TYPES
+========================================================= */
 
 const TICKET_TYPES = {
     staffapplication: {
@@ -115,9 +121,11 @@ const TICKET_TYPES = {
         label: 'Eclipse Staff applications',
         shortName: 'staffapplication',
         emoji: '<a:Briefcase:1555225149689696517>',
+
         accessRoles: [
             STAFF_TICKET_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Management Team',
     },
 
@@ -126,9 +134,11 @@ const TICKET_TYPES = {
         label: 'Competitive Roster',
         shortName: 'competitive',
         emoji: '<a:Competitive:1555290266011836456>',
+
         accessRoles: [
             TEAM_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Team',
     },
 
@@ -137,9 +147,11 @@ const TICKET_TYPES = {
         label: 'Creative Roster',
         shortName: 'creative',
         emoji: '📝',
+
         accessRoles: [
             TEAM_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Team',
     },
 
@@ -148,9 +160,11 @@ const TICKET_TYPES = {
         label: 'GFX or VFX Roster',
         shortName: 'production',
         emoji: '🎨',
+
         accessRoles: [
             TEAM_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Team',
     },
 
@@ -159,9 +173,11 @@ const TICKET_TYPES = {
         label: 'Streamer or Content Creator Roster',
         shortName: 'content',
         emoji: '📹',
+
         accessRoles: [
             TEAM_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Team',
     },
 
@@ -170,9 +186,11 @@ const TICKET_TYPES = {
         label: 'General Enquiries',
         shortName: 'enquiries',
         emoji: '<:questions:1555225101438292108>',
+
         accessRoles: [
             TEAM_ROLE_ID,
         ],
+
         teamName: 'Eclipse Staff Team',
     },
 
@@ -181,17 +199,22 @@ const TICKET_TYPES = {
         label: 'Ownership Enquiries',
         shortName: 'ownership',
         emoji: '👑',
+
+        /*
+         * BOTH ownership roles are explicitly included.
+         */
         accessRoles: [
-            ...OWNER_ROLE_IDS,
+            '1554219959251374220',
+            '1554220571804303422',
         ],
+
         teamName: 'Eclipse Ownership Team',
     },
 };
 
-
-/* ========================================================================== */
-/* HELPERS                                                                    */
-/* ========================================================================== */
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function getSupportRoleId() {
     return (
@@ -200,7 +223,6 @@ function getSupportRoleId() {
     );
 }
 
-
 function getLogChannelId() {
     return (
         config.tickets?.logChannelId ||
@@ -208,14 +230,12 @@ function getLogChannelId() {
     );
 }
 
-
 function formatPriority(priority) {
     return (
         PRIORITIES[priority] ||
         PRIORITIES.low
     );
 }
-
 
 function formatTicketType(type) {
     return (
@@ -225,13 +245,11 @@ function formatTicketType(type) {
     );
 }
 
-
 function formatUser(userId) {
     return userId
         ? `<@${userId}>`
         : 'None';
 }
-
 
 function cleanUsername(username) {
     return String(username)
@@ -240,13 +258,8 @@ function cleanUsername(username) {
         .slice(0, 40);
 }
 
-
-function getBaseTicketName(
-    username,
-    type,
-) {
-    const clean =
-        cleanUsername(username);
+function getBaseTicketName(username, type) {
+    const clean = cleanUsername(username);
 
     const shortName =
         TICKET_TYPES[type]?.shortName ||
@@ -254,7 +267,6 @@ function getBaseTicketName(
 
     return `${clean}-${shortName}`;
 }
-
 
 function getPriorityTicketName(ticket) {
     const priority =
@@ -270,97 +282,96 @@ function getPriorityTicketName(ticket) {
         .slice(0, 100);
 }
 
-
-/* ========================================================================== */
-/* DATABASE NORMALIZER                                                        */
-/* ========================================================================== */
-
 /*
- * PostgreSQL uses snake_case names while the ticket code uses camelCase.
- *
- * This normalizer makes both forms available so the ticket system does not
- * lose claimedBy/openedAt/closedAt information after reading from PostgreSQL.
+ * PostgreSQL returns snake_case fields.
+ * Normalize them so the ticket system can use
+ * both the old and new database schemas.
  */
-
-function normalizeTicket(ticket) {
-    if (!ticket) {
+function normalizeTicket(row) {
+    if (!row) {
         return null;
     }
 
     return {
-        ...ticket,
+        ...row,
 
         guildId:
-            ticket.guildId ??
-            ticket.guild_id ??
+            row.guildId ??
+            row.guild_id ??
             null,
 
         channelId:
-            ticket.channelId ??
-            ticket.channel_id ??
+            row.channelId ??
+            row.channel_id ??
             null,
 
         channelName:
-            ticket.channelName ??
-            ticket.channel_name ??
+            row.channelName ??
+            row.channel_name ??
             null,
 
         userId:
-            ticket.userId ??
-            ticket.user_id ??
+            row.userId ??
+            row.user_id ??
             null,
 
         username:
-            ticket.username ??
+            row.username ??
             null,
 
         type:
-            ticket.type ??
+            row.type ??
+            row.ticket_type ??
+            null,
+
+        ticketType:
+            row.ticketType ??
+            row.ticket_type ??
+            row.type ??
             null,
 
         question:
-            ticket.question ??
+            row.question ??
             null,
 
         priority:
-            ticket.priority ??
+            row.priority ??
             'low',
 
         claimedBy:
-            ticket.claimedBy ??
-            ticket.claimed_by ??
-            null,
-
-        claimedAt:
-            ticket.claimedAt ??
-            ticket.claimed_at ??
+            row.claimedBy ??
+            row.claimed_by ??
             null,
 
         status:
-            ticket.status ??
+            row.status ??
             'open',
 
         openedAt:
-            ticket.openedAt ??
-            ticket.opened_at ??
+            row.openedAt ??
+            row.opened_at ??
+            null,
+
+        claimedAt:
+            row.claimedAt ??
+            row.claimed_at ??
             null,
 
         closedAt:
-            ticket.closedAt ??
-            ticket.closed_at ??
+            row.closedAt ??
+            row.closed_at ??
             null,
 
         closedBy:
-            ticket.closedBy ??
-            ticket.closed_by ??
+            row.closedBy ??
+            row.closed_by ??
             null,
     };
 }
 
-
-/* ========================================================================== */
-/* PANEL DETECTION                                                            */
-/* ========================================================================== */
+/* =========================================================
+   PANEL DETECTION
+========================================================= */
 
 function isEclipsePanel(message) {
     if (!message?.author?.bot) {
@@ -371,11 +382,9 @@ function isEclipsePanel(message) {
         return false;
     }
 
-    const text =
-        JSON.stringify(
-            message.toJSON?.() ||
-            message,
-        );
+    const json = JSON.stringify(
+        message.toJSON?.() || message,
+    );
 
     const requiredIds = [
         CUSTOM_IDS.staff,
@@ -385,13 +394,12 @@ function isEclipsePanel(message) {
     ];
 
     return requiredIds.every(
-        id => text.includes(id),
+        id => json.includes(id),
     );
 }
 
-
 async function findExistingPanel(channel) {
-    let before = null;
+    let before;
 
     while (true) {
         const options = {
@@ -403,18 +411,14 @@ async function findExistingPanel(channel) {
         }
 
         const messages =
-            await channel.messages.fetch(
-                options,
-            );
+            await channel.messages.fetch(options);
 
         if (!messages.size) {
             return null;
         }
 
         const panel =
-            messages.find(
-                isEclipsePanel,
-            );
+            messages.find(isEclipsePanel);
 
         if (panel) {
             return panel;
@@ -429,10 +433,9 @@ async function findExistingPanel(channel) {
     }
 }
 
-
-/* ========================================================================== */
-/* PANEL BUTTONS                                                              */
-/* ========================================================================== */
+/* =========================================================
+   PANEL BUTTON
+========================================================= */
 
 function panelButton(
     customId,
@@ -448,19 +451,17 @@ function panelButton(
         );
 }
 
-
-/* ========================================================================== */
-/* PANEL                                                                      */
-/* ========================================================================== */
+/* =========================================================
+   BUILD PANEL
+========================================================= */
 
 function buildTicketPanel() {
     const container =
         new ContainerBuilder();
 
     /*
-     * STAFF
+     * Staff applications
      */
-
     container.addSectionComponents(
         new SectionBuilder()
             .addTextDisplayComponents(
@@ -479,22 +480,21 @@ function buildTicketPanel() {
             ),
     );
 
-    /*
-     * TEAM
-     */
-
     container.addSeparatorComponents(
         new SeparatorBuilder()
             .setDivider(true),
     );
 
+    /*
+     * Team applications
+     */
     container.addSectionComponents(
         new SectionBuilder()
             .addTextDisplayComponents(
                 new TextDisplayBuilder()
                     .setContent(
                         `⚒️ **Eclipse Team Applications**\n` +
-                        `Apply as a Competitive, Creative, Production, or Content Roster member at Eclipse.`,
+                        `Apply as a Competitive player, Creative player, Production or Content Roster at Eclipse.`,
                     ),
             )
             .setButtonAccessory(
@@ -506,15 +506,14 @@ function buildTicketPanel() {
             ),
     );
 
-    /*
-     * GENERAL
-     */
-
     container.addSeparatorComponents(
         new SeparatorBuilder()
             .setDivider(true),
     );
 
+    /*
+     * General enquiries
+     */
     container.addSectionComponents(
         new SectionBuilder()
             .addTextDisplayComponents(
@@ -533,15 +532,14 @@ function buildTicketPanel() {
             ),
     );
 
-    /*
-     * OWNERSHIP
-     */
-
     container.addSeparatorComponents(
         new SeparatorBuilder()
             .setDivider(true),
     );
 
+    /*
+     * Ownership enquiries
+     */
     container.addSectionComponents(
         new SectionBuilder()
             .addTextDisplayComponents(
@@ -561,9 +559,8 @@ function buildTicketPanel() {
     );
 
     /*
-     * OPTIONAL IMAGE
+     * Optional image.
      */
-
     if (PANEL_IMAGE_URL) {
         container.addSeparatorComponents(
             new SeparatorBuilder()
@@ -582,9 +579,11 @@ function buildTicketPanel() {
     }
 
     /*
-     * OPTIONAL FOOTER
+     * Optional panel footer.
+     *
+     * This is ONLY for the public panel.
+     * It is NOT used inside ticket embeds.
      */
-
     if (PANEL_FOOTER) {
         container.addSeparatorComponents(
             new SeparatorBuilder()
@@ -602,16 +601,17 @@ function buildTicketPanel() {
     return container;
 }
 
-
-/* ========================================================================== */
-/* ENSURE PANEL                                                               */
-/* ========================================================================== */
+/* =========================================================
+   ENSURE PANEL
+========================================================= */
 
 async function ensureTicketPanel(client) {
     if (!client.isReady()) {
-        throw new Error(
-            'Discord client is not ready yet.',
+        console.log(
+            '[Eclipse Tickets] Client is not ready yet. Panel check skipped.',
         );
+
+        return null;
     }
 
     const channel =
@@ -636,9 +636,7 @@ async function ensureTicketPanel(client) {
     );
 
     const existing =
-        await findExistingPanel(
-            channel,
-        );
+        await findExistingPanel(channel);
 
     if (existing) {
         console.log(
@@ -657,7 +655,6 @@ async function ensureTicketPanel(client) {
             components: [
                 buildTicketPanel(),
             ],
-
             flags:
                 MessageFlags.IsComponentsV2,
         });
@@ -669,18 +666,16 @@ async function ensureTicketPanel(client) {
     return message;
 }
 
-
-/* ========================================================================== */
-/* TICKET PERMISSIONS                                                         */
-/* ========================================================================== */
+/* =========================================================
+   TICKET PERMISSIONS
+========================================================= */
 
 function buildInitialOverwrites(
     guild,
     userId,
     type,
 ) {
-    const bot =
-        guild.members.me;
+    const bot = guild.members.me;
 
     const ticketType =
         TICKET_TYPES[type];
@@ -690,10 +685,6 @@ function buildInitialOverwrites(
         [TEAM_ROLE_ID];
 
     const overwrites = [
-        /*
-         * Everyone cannot see or send in the ticket.
-         */
-
         {
             id: guild.roles.everyone.id,
 
@@ -703,10 +694,6 @@ function buildInitialOverwrites(
                 PermissionFlagsBits.ReadMessageHistory,
             ],
         },
-
-        /*
-         * Ticket owner.
-         */
 
         {
             id: userId,
@@ -722,9 +709,8 @@ function buildInitialOverwrites(
     ];
 
     /*
-     * Ticket-specific access roles.
+     * Ticket-type access roles.
      */
-
     for (const roleId of accessRoles) {
         if (
             !overwrites.some(
@@ -747,11 +733,11 @@ function buildInitialOverwrites(
     }
 
     /*
-     * Additional staff/management/owner access.
+     * Additional ticket access roles.
      */
-
     for (
-        const roleId of EXTRA_TICKET_ACCESS_ROLES
+        const roleId of
+        EXTRA_TICKET_ACCESS_ROLES
     ) {
         if (
             !overwrites.some(
@@ -774,9 +760,8 @@ function buildInitialOverwrites(
     }
 
     /*
-     * Bot.
+     * Bot permissions.
      */
-
     if (bot) {
         overwrites.push({
             id: bot.id,
@@ -796,20 +781,36 @@ function buildInitialOverwrites(
     return overwrites;
 }
 
-
-/* ========================================================================== */
-/* CLAIM PERMISSIONS                                                          */
-/* ========================================================================== */
+/* =========================================================
+   CLAIM PERMISSIONS
+========================================================= */
 
 async function applyClaimPermissions(
     channel,
     ticket,
     claimedBy,
 ) {
-    /*
-     * Always make sure the ticket owner can talk.
-     */
+    if (!claimedBy) {
+        /*
+         * When unclaimed, restore the ticket owner.
+         */
+        await channel.permissionOverwrites.edit(
+            ticket.userId,
+            {
+                ViewChannel: true,
+                SendMessages: true,
+                ReadMessageHistory: true,
+                AttachFiles: true,
+                EmbedLinks: true,
+            },
+        );
 
+        return;
+    }
+
+    /*
+     * Ticket owner can always send.
+     */
     await channel.permissionOverwrites.edit(
         ticket.userId,
         {
@@ -822,40 +823,8 @@ async function applyClaimPermissions(
     );
 
     /*
-     * Unclaimed:
-     *
-     * Ticket access roles retain their ability to send.
+     * Claimer can send.
      */
-
-    if (!claimedBy) {
-        const allowedRoles =
-            new Set([
-                ...EXTRA_TICKET_ACCESS_ROLES,
-                TEAM_ROLE_ID,
-                ...(TICKET_TYPES[ticket.type]
-                    ?.accessRoles || []),
-            ]);
-
-        for (const roleId of allowedRoles) {
-            await channel.permissionOverwrites.edit(
-                roleId,
-                {
-                    ViewChannel: true,
-                    SendMessages: true,
-                    ReadMessageHistory: true,
-                    AttachFiles: true,
-                    EmbedLinks: true,
-                },
-            );
-        }
-
-        return;
-    }
-
-    /*
-     * Claimer can talk.
-     */
-
     await channel.permissionOverwrites.edit(
         claimedBy,
         {
@@ -868,15 +837,17 @@ async function applyClaimPermissions(
     );
 
     /*
-     * Required staff/management/owner roles can talk.
+     * Staff / ownership roles can send.
      */
-
     const allowedRoles =
         new Set([
             ...EXTRA_TICKET_ACCESS_ROLES,
             TEAM_ROLE_ID,
-            ...(TICKET_TYPES[ticket.type]
-                ?.accessRoles || []),
+            ...(
+                TICKET_TYPES[
+                    ticket.type
+                ]?.accessRoles || []
+            ),
         ]);
 
     for (const roleId of allowedRoles) {
@@ -893,10 +864,9 @@ async function applyClaimPermissions(
     }
 }
 
-
-/* ========================================================================== */
-/* TICKET NAMES                                                               */
-/* ========================================================================== */
+/* =========================================================
+   TICKET NAME
+========================================================= */
 
 async function findAvailableTicketName(
     guild,
@@ -929,19 +899,11 @@ async function findAvailableTicketName(
     return name.slice(0, 100);
 }
 
+/* =========================================================
+   TICKET EMBED
+========================================================= */
 
-/* ========================================================================== */
-/* TICKET EMBED                                                               */
-/* ========================================================================== */
-
-function buildTicketEmbed(
-    rawTicket,
-) {
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
-
+function buildTicketEmbed(ticket) {
     const type =
         TICKET_TYPES[ticket.type];
 
@@ -949,10 +911,6 @@ function buildTicketEmbed(
         formatPriority(
             ticket.priority,
         );
-
-    const teamName =
-        type?.teamName ||
-        'Eclipse Staff Team';
 
     const owner =
         `<@${ticket.userId}>`;
@@ -985,9 +943,17 @@ function buildTicketEmbed(
             `Thank you for your patience.`;
     }
 
+    /*
+     * IMPORTANT:
+     *
+     * There is intentionally NO .setFooter()
+     * here.
+     */
     return new EmbedBuilder()
         .setColor(0x5865F2)
+
         .setDescription(text)
+
         .addFields(
             {
                 name: 'Ticket Type',
@@ -1011,26 +977,14 @@ function buildTicketEmbed(
                         : 'Unclaimed',
                 inline: true,
             },
-        )
-        .setFooter({
-            text:
-                `Eclipse • ${teamName}`,
-        });
+        );
 }
 
+/* =========================================================
+   TICKET BUTTONS
+========================================================= */
 
-/* ========================================================================== */
-/* TICKET BUTTONS                                                             */
-/* ========================================================================== */
-
-function buildTicketButtons(
-    rawTicket,
-) {
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
-
+function buildTicketButtons(ticket) {
     return new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -1069,10 +1023,9 @@ function buildTicketButtons(
         );
 }
 
-
-/* ========================================================================== */
-/* CREATE TICKET                                                              */
-/* ========================================================================== */
+/* =========================================================
+   CREATE TICKET
+========================================================= */
 
 async function createTicketChannel(
     interaction,
@@ -1117,11 +1070,17 @@ async function createTicketChannel(
             type,
         );
 
+    /*
+     * Create Discord channel first.
+     */
     const channel =
         await guild.channels.create({
             name: channelName,
+
             type: ChannelType.GuildText,
-            parent: TICKET_CATEGORY_ID,
+
+            parent:
+                TICKET_CATEGORY_ID,
 
             permissionOverwrites:
                 buildInitialOverwrites(
@@ -1133,39 +1092,28 @@ async function createTicketChannel(
 
     let ticket;
 
+    /*
+     * Save to PostgreSQL.
+     */
     try {
-        ticket =
-            await createTicket({
-                guildId:
-                    guild.id,
-
-                channelId:
-                    channel.id,
-
-                channelName,
-
-                userId:
-                    interaction.user.id,
-
-                username:
-                    interaction.user.username,
-
-                type,
-
-                priority:
-                    'low',
-
-                question:
-                    null,
-            });
+        ticket = await createTicket({
+            guildId: guild.id,
+            channelId: channel.id,
+            channelName,
+            userId:
+                interaction.user.id,
+            username:
+                interaction.user.username,
+            type,
+            priority: 'low',
+            question: null,
+        });
     } catch (error) {
         try {
             await channel.delete(
                 'Ticket database save failed',
             );
-        } catch {
-            // Ignore cleanup failure.
-        }
+        } catch {}
 
         console.error(
             '[Eclipse Tickets] Database error:',
@@ -1182,44 +1130,44 @@ async function createTicketChannel(
             await channel.delete(
                 'Ticket database save failed',
             );
-        } catch {
-            // Ignore.
-        }
+        } catch {}
 
         throw new Error(
             'The ticket could not be saved to the database.',
         );
     }
 
-    const freshTicket =
-        normalizeTicket({
-            ...ticket,
+    ticket =
+        normalizeTicket(ticket);
 
-            guildId:
-                guild.id,
+    const freshTicket = {
+        ...ticket,
 
-            channelId:
-                channel.id,
+        guildId:
+            guild.id,
 
-            channelName,
+        channelId:
+            channel.id,
 
-            userId:
-                interaction.user.id,
+        channelName,
 
-            username:
-                interaction.user.username,
+        userId:
+            interaction.user.id,
 
-            type,
+        username:
+            interaction.user.username,
 
-            priority:
-                'low',
+        type,
 
-            claimedBy:
-                null,
-        });
+        priority: 'low',
+
+        claimedBy: null,
+    };
 
     /*
-     * Non-embed mention message.
+     * =====================================================
+     * OPENING MESSAGE / ROLE PINGS
+     * =====================================================
      */
 
     let mention;
@@ -1228,16 +1176,30 @@ async function createTicketChannel(
         type ===
         'staffapplication'
     ) {
+        /*
+         * Staff application only pings the user.
+         */
         mention =
             `<@${interaction.user.id}>`;
     } else {
+        /*
+         * All other ticket types ping their
+         * configured access roles.
+         *
+         * Ownership therefore pings BOTH:
+         *
+         * 1554219959251374220
+         * 1554220571804303422
+         */
         const roles =
-            ticketType.accessRoles || [];
+            ticketType.accessRoles ||
+            [];
 
         const roleMentions =
             roles
                 .map(
-                    id => `<@&${id}>`,
+                    id =>
+                        `<@&${id}>`,
                 )
                 .join(' ');
 
@@ -1259,6 +1221,9 @@ async function createTicketChannel(
         },
     });
 
+    /*
+     * Ticket embed + controls.
+     */
     await channel.send({
         embeds: [
             buildTicketEmbed(
@@ -1276,10 +1241,9 @@ async function createTicketChannel(
     return channel;
 }
 
-
-/* ========================================================================== */
-/* TEAM MENU                                                                  */
-/* ========================================================================== */
+/* =========================================================
+   TEAM MENU
+========================================================= */
 
 async function showTeamMenu(
     interaction,
@@ -1372,57 +1336,49 @@ async function showTeamMenu(
     });
 }
 
-
-/* ========================================================================== */
-/* STAFF PERMISSION CHECK                                                     */
-/* ========================================================================== */
+/* =========================================================
+   STAFF ACCESS CHECK
+========================================================= */
 
 function hasTicketStaffAccess(
-    interaction,
+    member,
 ) {
-    const member =
-        interaction.member;
-
     if (!member) {
         return false;
     }
 
-    const roleIds = [
-        TEAM_ROLE_ID,
-        STAFF_TICKET_ROLE_ID,
-        ...EXTRA_TICKET_ACCESS_ROLES,
-    ];
-
-    return (
-        member.roles?.cache?.some(
-            role =>
-                roleIds.includes(
-                    role.id,
-                ),
-        ) ||
+    if (
         member.permissions?.has(
             PermissionFlagsBits.ManageChannels,
         )
+    ) {
+        return true;
+    }
+
+    return member.roles.cache.some(
+        role =>
+            [
+                TEAM_ROLE_ID,
+                STAFF_TICKET_ROLE_ID,
+                ...EXTRA_TICKET_ACCESS_ROLES,
+            ].includes(role.id),
     );
 }
 
-
-/* ========================================================================== */
-/* CLAIM                                                                      */
-/* ========================================================================== */
+/* =========================================================
+   CLAIM
+========================================================= */
 
 async function handleClaim(
     interaction,
 ) {
-    const rawTicket =
+    let ticket =
         await getTicket(
             interaction.channel.id,
         );
 
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
+    ticket =
+        normalizeTicket(ticket);
 
     if (!ticket) {
         return interaction.reply({
@@ -1432,11 +1388,12 @@ async function handleClaim(
         });
     }
 
-    if (
-        !hasTicketStaffAccess(
-            interaction,
-        )
-    ) {
+    const isStaff =
+        hasTicketStaffAccess(
+            interaction.member,
+        );
+
+    if (!isStaff) {
         return interaction.reply({
             content:
                 'You do not have permission to claim this ticket.',
@@ -1459,7 +1416,6 @@ async function handleClaim(
     /*
      * UNCLAIM
      */
-
     if (
         ticket.claimedBy ===
         interaction.user.id
@@ -1469,13 +1425,12 @@ async function handleClaim(
                 interaction.channel.id,
             );
 
-        const fresh =
-            normalizeTicket({
+        const fresh = normalizeTicket(
+            updated || {
                 ...ticket,
-                ...(updated || {}),
-                claimedBy:
-                    null,
-            });
+                claimedBy: null,
+            },
+        );
 
         await applyClaimPermissions(
             interaction.channel,
@@ -1507,7 +1462,6 @@ async function handleClaim(
     /*
      * CLAIM
      */
-
     const updated =
         await claimTicket(
             interaction.channel.id,
@@ -1515,12 +1469,13 @@ async function handleClaim(
         );
 
     const fresh =
-        normalizeTicket({
-            ...ticket,
-            ...(updated || {}),
-            claimedBy:
-                interaction.user.id,
-        });
+        normalizeTicket(
+            updated || {
+                ...ticket,
+                claimedBy:
+                    interaction.user.id,
+            },
+        );
 
     await applyClaimPermissions(
         interaction.channel,
@@ -1549,23 +1504,20 @@ async function handleClaim(
     });
 }
 
-
-/* ========================================================================== */
-/* PRIORITY                                                                   */
-/* ========================================================================== */
+/* =========================================================
+   PRIORITY
+========================================================= */
 
 async function handlePriority(
     interaction,
 ) {
-    const rawTicket =
+    let ticket =
         await getTicket(
             interaction.channel.id,
         );
 
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
+    ticket =
+        normalizeTicket(ticket);
 
     if (!ticket) {
         return interaction.reply({
@@ -1577,7 +1529,7 @@ async function handlePriority(
 
     if (
         !hasTicketStaffAccess(
-            interaction,
+            interaction.member,
         )
     ) {
         return interaction.reply({
@@ -1597,45 +1549,27 @@ async function handlePriority(
             )
             .addOptions(
                 {
-                    label:
-                        'Low',
-
+                    label: 'Low',
                     description:
                         'Normal ticket priority.',
-
-                    value:
-                        'low',
-
-                    emoji:
-                        '🟢',
+                    value: 'low',
+                    emoji: '🟢',
                 },
 
                 {
-                    label:
-                        'High',
-
+                    label: 'High',
                     description:
                         'Requires increased attention.',
-
-                    value:
-                        'high',
-
-                    emoji:
-                        '🟠',
+                    value: 'high',
+                    emoji: '🟠',
                 },
 
                 {
-                    label:
-                        'Urgent',
-
+                    label: 'Urgent',
                     description:
                         'Requires immediate attention.',
-
-                    value:
-                        'urgent',
-
-                    emoji:
-                        '🚨',
+                    value: 'urgent',
+                    emoji: '🚨',
                 },
             );
 
@@ -1652,10 +1586,9 @@ async function handlePriority(
     });
 }
 
-
-/* ========================================================================== */
-/* PRIORITY SELECTION                                                         */
-/* ========================================================================== */
+/* =========================================================
+   PRIORITY SELECTION
+========================================================= */
 
 async function handlePrioritySelection(
     interaction,
@@ -1667,39 +1600,34 @@ async function handlePrioritySelection(
         return interaction.update({
             content:
                 'Invalid priority.',
-
             components: [],
         });
     }
 
-    const rawTicket =
+    let ticket =
         await getTicket(
             interaction.channel.id,
         );
 
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
+    ticket =
+        normalizeTicket(ticket);
 
     if (!ticket) {
         return interaction.update({
             content:
                 'This is not an Eclipse ticket.',
-
             components: [],
         });
     }
 
     if (
         !hasTicketStaffAccess(
-            interaction,
+            interaction.member,
         )
     ) {
         return interaction.update({
             content:
                 'You do not have permission to change ticket priority.',
-
             components: [],
         });
     }
@@ -1711,11 +1639,12 @@ async function handlePrioritySelection(
         );
 
     const fresh =
-        normalizeTicket({
-            ...ticket,
-            ...(updated || {}),
-            priority,
-        });
+        normalizeTicket(
+            updated || {
+                ...ticket,
+                priority,
+            },
+        );
 
     const newName =
         getPriorityTicketName(
@@ -1732,41 +1661,33 @@ async function handlePrioritySelection(
         );
     }
 
-    /*
-     * Close the priority menu first.
-     */
+    const priorityInfo =
+        formatPriority(priority);
 
     await interaction.update({
         content:
-            `Priority changed to ${formatPriority(priority).emoji} **${formatPriority(priority).label}**.`,
+            `Priority changed to ${priorityInfo.emoji} **${priorityInfo.label}**.`,
 
         components: [],
     });
 
     /*
-     * Find and update the ticket embed.
+     * Find the ticket embed and update it.
      */
-
     const messages =
         await interaction.channel.messages.fetch({
-            limit: 50,
+            limit: 20,
         });
 
     const botId =
-        interaction.client.user?.id;
+        interaction.client.user.id;
 
     const ticketMessage =
         messages.find(
             message =>
-                message.author?.id ===
+                message.author.id ===
                     botId &&
-                message.embeds?.length > 0 &&
-                message.embeds[0]
-                    ?.footer
-                    ?.text
-                    ?.startsWith(
-                        'Eclipse •',
-                    ),
+                message.embeds.length > 0,
         );
 
     if (ticketMessage) {
@@ -1786,23 +1707,20 @@ async function handlePrioritySelection(
     }
 }
 
-
-/* ========================================================================== */
-/* CLOSE MODAL                                                                */
-/* ========================================================================== */
+/* =========================================================
+   CLOSE MODAL
+========================================================= */
 
 async function handleClose(
     interaction,
 ) {
-    const rawTicket =
+    let ticket =
         await getTicket(
             interaction.channel.id,
         );
 
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
+    ticket =
+        normalizeTicket(ticket);
 
     if (!ticket) {
         return interaction.reply({
@@ -1812,15 +1730,12 @@ async function handleClose(
         });
     }
 
-    const isOwner =
-        interaction.user.id ===
-        ticket.userId;
-
     const canClose =
-        isOwner ||
         hasTicketStaffAccess(
-            interaction,
-        );
+            interaction.member,
+        ) ||
+        interaction.user.id ===
+            ticket.userId;
 
     if (!canClose) {
         return interaction.reply({
@@ -1841,9 +1756,7 @@ async function handleClose(
 
     const reason =
         new TextInputBuilder()
-            .setCustomId(
-                'reason',
-            )
+            .setCustomId('reason')
             .setLabel(
                 'Reason for closing',
             )
@@ -1858,9 +1771,7 @@ async function handleClose(
 
     modal.addComponents(
         new ActionRowBuilder()
-            .addComponents(
-                reason,
-            ),
+            .addComponents(reason),
     );
 
     return interaction.showModal(
@@ -1868,17 +1779,16 @@ async function handleClose(
     );
 }
 
-
-/* ========================================================================== */
-/* TRANSCRIPT                                                                 */
-/* ========================================================================== */
+/* =========================================================
+   COLLECT TRANSCRIPT
+========================================================= */
 
 async function collectTranscript(
     channel,
 ) {
     const messages = [];
 
-    let before = null;
+    let before;
 
     while (true) {
         const options = {
@@ -1886,7 +1796,8 @@ async function collectTranscript(
         };
 
         if (before) {
-            options.before = before;
+            options.before =
+                before;
         }
 
         const batch =
@@ -1915,47 +1826,52 @@ async function collectTranscript(
     return messages
         .map(message => {
             const timestamp =
-                message.createdAt
-                    .toISOString();
+                message.createdAt.toISOString();
 
             const author =
                 `${message.author.tag} (${message.author.id})`;
 
-            const content =
+            let content =
                 message.content ||
-                '[embed/components/attachment]';
+                '';
+
+            if (
+                !content &&
+                (
+                    message.embeds.length ||
+                    message.components.length ||
+                    message.attachments.size
+                )
+            ) {
+                content =
+                    '[embed/components/attachment]';
+            }
 
             return `[${timestamp}] ${author}: ${content}`;
         })
         .join('\n');
 }
 
-
-/* ========================================================================== */
-/* SEND TRANSCRIPT                                                            */
-/* ========================================================================== */
+/* =========================================================
+   SEND TRANSCRIPT
+========================================================= */
 
 async function sendTranscript(
     client,
     channel,
-    rawTicket,
+    ticket,
     closedBy,
     closeReason,
 ) {
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
-
     const logChannel =
         await client.channels.fetch(
             getLogChannelId(),
         );
 
-    if (!logChannel?.isTextBased()) {
-        throw new Error(
-            `Ticket log channel ${getLogChannelId()} was not found or is not text based.`,
-        );
+    if (
+        !logChannel?.isTextBased()
+    ) {
+        return;
     }
 
     const transcript =
@@ -1965,32 +1881,54 @@ async function sendTranscript(
 
     const openedAt =
         ticket.openedAt ||
+        ticket.opened_at ||
         new Date();
 
     const closedAt =
         new Date();
 
-    const header =
-        [
-            'ECLIPSE TICKET TRANSCRIPT',
-            '',
-            `Ticket Owner: ${formatUser(ticket.userId)}`,
-            `Staff Claimed By: ${
-                ticket.claimedBy
-                    ? formatUser(ticket.claimedBy)
-                    : 'Unclaimed'
-            }`,
-            `Date Opened: ${new Date(openedAt).toISOString()}`,
-            `Date Closed: ${closedAt.toISOString()}`,
-            `Closed By: ${formatUser(closedBy)}`,
-            `Close Reason: ${closeReason}`,
-            '',
-            '--------------------------------------------------',
-            '',
-            transcript ||
-                'No messages were sent.',
-        ].join('\n');
+    const openedTimestamp =
+        new Date(
+            openedAt,
+        ).getTime();
 
+    const closedTimestamp =
+        closedAt.getTime();
+
+    const header = [
+        'ECLIPSE TICKET TRANSCRIPT',
+        '',
+        `Ticket Owner: ${formatUser(ticket.userId)}`,
+
+        `Staff Claimed By: ${
+            ticket.claimedBy
+                ? formatUser(
+                      ticket.claimedBy,
+                  )
+                : 'Unclaimed'
+        }`,
+
+        `Date Opened: ${new Date(openedAt).toISOString()}`,
+
+        `Date Closed: ${closedAt.toISOString()}`,
+
+        `Closed By: ${formatUser(closedBy)}`,
+
+        `Close Reason: ${closeReason}`,
+
+        '',
+
+        '--------------------------------------------------',
+
+        '',
+
+        transcript ||
+            'No messages were sent.',
+    ].join('\n');
+
+    /*
+     * Discord message limit.
+     */
     const chunks = [];
 
     for (
@@ -2007,121 +1945,113 @@ async function sendTranscript(
     }
 
     /*
-     * One summary message.
+     * Transcript metadata.
      */
+    const embeds = [
+        new EmbedBuilder()
+            .setColor(0x5865F2)
+
+            .setTitle(
+                'Eclipse Ticket Transcript',
+            )
+
+            .addFields(
+                {
+                    name:
+                        'Ticket Owner',
+
+                    value:
+                        formatUser(
+                            ticket.userId,
+                        ),
+
+                    inline: true,
+                },
+
+                {
+                    name:
+                        'Staff Claimed By',
+
+                    value:
+                        ticket.claimedBy
+                            ? formatUser(
+                                  ticket.claimedBy,
+                              )
+                            : 'Unclaimed',
+
+                    inline: true,
+                },
+
+                {
+                    name:
+                        'Date Opened',
+
+                    value:
+                        `<t:${Math.floor(
+                            openedTimestamp /
+                                1000,
+                        )}:F>`,
+
+                    inline: false,
+                },
+
+                {
+                    name:
+                        'Date Closed',
+
+                    value:
+                        `<t:${Math.floor(
+                            closedTimestamp /
+                                1000,
+                        )}:F>`,
+
+                    inline: false,
+                },
+
+                {
+                    name:
+                        'Close Reason',
+
+                    value:
+                        closeReason,
+
+                    inline: false,
+                },
+            )
+
+            .setTimestamp(),
+    ];
 
     await logChannel.send({
-        embeds: [
-            new EmbedBuilder()
-                .setColor(0x5865F2)
-                .setTitle(
-                    'Eclipse Ticket Transcript',
-                )
-                .addFields(
-                    {
-                        name:
-                            'Ticket Owner',
-
-                        value:
-                            formatUser(
-                                ticket.userId,
-                            ),
-
-                        inline:
-                            true,
-                    },
-
-                    {
-                        name:
-                            'Staff Claimed By',
-
-                        value:
-                            ticket.claimedBy
-                                ? formatUser(
-                                    ticket.claimedBy,
-                                )
-                                : 'Unclaimed',
-
-                        inline:
-                            true,
-                    },
-
-                    {
-                        name:
-                            'Date Opened',
-
-                        value:
-                            `<t:${Math.floor(
-                                new Date(
-                                    openedAt,
-                                ).getTime() /
-                                    1000,
-                            )}:F>`,
-
-                        inline:
-                            false,
-                    },
-
-                    {
-                        name:
-                            'Date Closed',
-
-                        value:
-                            `<t:${Math.floor(
-                                closedAt.getTime() /
-                                    1000,
-                            )}:F>`,
-
-                        inline:
-                            false,
-                    },
-
-                    {
-                        name:
-                            'Close Reason',
-
-                        value:
-                            closeReason,
-
-                        inline:
-                            false,
-                    },
-                )
-                .setTimestamp(),
-        ],
+        embeds,
     });
 
-    /*
-     * Transcript messages.
-     */
-
     for (
-        const chunk of chunks
+        let i = 0;
+        i < chunks.length;
+        i++
     ) {
         await logChannel.send({
             content:
-                `\`\`\`\n${chunk}\n\`\`\``,
+                `\`\`\`\n${chunks[i]}\n\`\`\``,
         });
     }
 }
 
-
-/* ========================================================================== */
-/* CLOSE CONFIRMATION                                                         */
-/* ========================================================================== */
+/* =========================================================
+   CLOSE CONFIRMATION
+========================================================= */
 
 async function handleCloseConfirmation(
     interaction,
 ) {
-    const rawTicket =
+    let ticket =
         await getTicket(
             interaction.channel.id,
         );
 
-    const ticket =
-        normalizeTicket(
-            rawTicket,
-        );
+    ticket =
+        normalizeTicket(ticket);
 
     if (!ticket) {
         return interaction.reply({
@@ -2143,9 +2073,8 @@ async function handleCloseConfirmation(
     });
 
     /*
-     * Create transcript BEFORE deleting the channel.
+     * Transcript first.
      */
-
     try {
         await sendTranscript(
             interaction.client,
@@ -2162,9 +2091,8 @@ async function handleCloseConfirmation(
     }
 
     /*
-     * Mark database ticket as closed.
+     * Close database record.
      */
-
     try {
         await closeTicket(
             interaction.channel.id,
@@ -2178,9 +2106,8 @@ async function handleCloseConfirmation(
     }
 
     /*
-     * Delete the Discord channel.
+     * Delete the ticket channel.
      */
-
     setTimeout(
         async () => {
             try {
@@ -2198,10 +2125,9 @@ async function handleCloseConfirmation(
     );
 }
 
-
-/* ========================================================================== */
-/* INTERACTION HANDLER                                                        */
-/* ========================================================================== */
+/* =========================================================
+   INTERACTION HANDLER
+========================================================= */
 
 async function handleInteraction(
     interaction,
@@ -2209,7 +2135,6 @@ async function handleInteraction(
     /*
      * BUTTONS
      */
-
     if (interaction.isButton()) {
         switch (
             interaction.customId
@@ -2260,7 +2185,6 @@ async function handleInteraction(
     /*
      * SELECT MENUS
      */
-
     if (
         interaction.isStringSelectMenu()
     ) {
@@ -2268,28 +2192,9 @@ async function handleInteraction(
             interaction.customId ===
             CUSTOM_IDS.teamSelect
         ) {
-            const selected =
-                interaction.values[0];
-
-            if (
-                !TICKET_TYPES[selected] ||
-                ![
-                    'competitive',
-                    'creative',
-                    'production',
-                    'content',
-                ].includes(selected)
-            ) {
-                return interaction.update({
-                    content:
-                        'Invalid team application selected.',
-                    components: [],
-                });
-            }
-
             return handleTicketOpen(
                 interaction,
-                selected,
+                interaction.values[0],
             );
         }
 
@@ -2307,7 +2212,6 @@ async function handleInteraction(
     /*
      * MODALS
      */
-
     if (
         interaction.isModalSubmit() &&
         interaction.customId ===
@@ -2319,10 +2223,9 @@ async function handleInteraction(
     }
 }
 
-
-/* ========================================================================== */
-/* OPEN HANDLER                                                               */
-/* ========================================================================== */
+/* =========================================================
+   OPEN HANDLER
+========================================================= */
 
 async function handleTicketOpen(
     interaction,
@@ -2349,29 +2252,30 @@ async function handleTicketOpen(
             error,
         );
 
-        await interaction.editReply({
-            content:
-                error?.message ||
-                'Something went wrong while creating your ticket.',
-        });
+        try {
+            await interaction.editReply({
+                content:
+                    error?.message ||
+                    'Something went wrong while creating your ticket.',
+            });
+        } catch {}
     }
 }
 
-
-/* ========================================================================== */
-/* REGISTER                                                                   */
-/* ========================================================================== */
+/* =========================================================
+   REGISTER
+========================================================= */
 
 export function registerTicketSystem(
     client,
 ) {
     /*
-     * Register interaction handling immediately.
+     * Register the interaction handler immediately.
      *
-     * This is safe before login because merely registering
-     * an event listener does not make a Discord REST request.
+     * The panel itself is NOT searched for until
+     * clientReady because Discord authentication is
+     * required before fetching the channel.
      */
-
     client.on(
         'interactionCreate',
         async interaction => {
@@ -2393,35 +2297,33 @@ export function registerTicketSystem(
                         await interaction.followUp({
                             content:
                                 'Something went wrong while processing that action.',
+
                             ephemeral: true,
                         });
                     } else {
                         await interaction.reply({
                             content:
                                 'Something went wrong while processing that action.',
+
                             ephemeral: true,
                         });
                     }
-                } catch {
-                    /*
-                     * Ignore secondary interaction errors.
-                     */
-                }
+                } catch {}
             }
         },
     );
 
     /*
-     * IMPORTANT:
+     * Search Discord for the panel on every startup.
      *
-     * DO NOT call ensureTicketPanel() immediately.
+     * If it exists:
+     *     do nothing.
      *
-     * registerTicketSystem() is normally called BEFORE
-     * client.login(), so Discord REST has no token yet.
+     * If it was deleted:
+     *     create a new one.
      *
-     * clientReady fires after Discord authentication.
+     * This prevents duplicate panels after restarts.
      */
-
     client.once(
         'clientReady',
         async () => {
@@ -2443,10 +2345,9 @@ export function registerTicketSystem(
     );
 }
 
-
-/* ========================================================================== */
-/* EXPORTS                                                                    */
-/* ========================================================================== */
+/* =========================================================
+   EXPORTS
+========================================================= */
 
 export {
     ensureTicketPanel,
