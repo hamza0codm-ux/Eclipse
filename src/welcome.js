@@ -51,9 +51,9 @@ export async function registerWelcome(client) {
                         )
                         .setDescription(
                             `${member}, make sure you check out these channels!\n\n` +
-                            `📜 <#${config.welcome.rulesChannelId}>\n` +
-                            `🔖 <#${config.welcome.howToJoinChannelId}>\n` +
-                            `📱 <#${config.welcome.socialsChannelId}>`,
+                            `<#${config.welcome.rulesChannelId}>\n` +
+                            `<#${config.welcome.howToJoinChannelId}>\n` +
+                            `<#${config.welcome.socialsChannelId}>`,
                         )
                         .setThumbnail(
                             member.user.displayAvatarURL({
