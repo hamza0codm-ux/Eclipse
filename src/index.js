@@ -18,6 +18,10 @@ import {
     registerTicketSystem,
 } from './tickets.js';
 
+import { 
+    registerRules,
+} from './rules.js';
+
 import {
     registerModeration,
 } from './moderation.js';
