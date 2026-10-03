@@ -19,10 +19,6 @@ import {
 } from './tickets.js';
 
 import {
-    registerRules,
-} from './rules.js';
-
-import {
     registerModeration,
 } from './moderation.js';
 
@@ -54,8 +50,6 @@ const client = new Client({
 registerWelcome(client);
 
 registerTicketSystem(client);
-
-registerRules(client);
 
 registerModeration(client);
 
