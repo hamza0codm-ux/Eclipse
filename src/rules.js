@@ -8,9 +8,6 @@ const RULES_COLOR = 0xFF7B00;
 
 const RULES_MARKER = null;
 
-// Recognise the old panel as well.
-const OLD_RULES_MARKER = null;
-
 const RULES_DESCRIPTION = `**🌑 | Eclipse — Community Rules**
 
 Welcome to **Eclipse**.
