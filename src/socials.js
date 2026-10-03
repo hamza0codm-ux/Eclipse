@@ -11,7 +11,7 @@ import {
 
 const SOCIALS_CHANNEL_ID = '1554243360842063942';
 
-const SOCIALS_MARKER = 'eclipse-socials-panel-v1';
+const SOCIALS_MARKER = null;
 
 const SOCIALS_COLOR = 0xFF7B00;
 
@@ -56,7 +56,7 @@ function buildSocialsComponents() {
                 )
                 .setButtonAccessory(
                     new ButtonBuilder()
-                        .setLabel('Twitter/X')
+                        .setLabel(' <:Twitter:1556055082221572188> Twitter/X')
                         .setStyle(ButtonStyle.Link)
                         .setURL(TWITTER_URL),
                 ),
@@ -86,7 +86,7 @@ function buildSocialsComponents() {
                 )
                 .setButtonAccessory(
                     new ButtonBuilder()
-                        .setLabel('YouTube')
+                        .setLabel('<:YouTube:1556054997861539951> YouTube')
                         .setStyle(ButtonStyle.Link)
                         .setURL(YOUTUBE_URL),
                 ),
