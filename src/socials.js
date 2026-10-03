@@ -1,5 +1,4 @@
 import {
-    ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
     ContainerBuilder,
@@ -15,6 +14,9 @@ const SOCIALS_COLOR = 0xFF7B00;
 
 const TWITTER_URL = 'https://x.com/eclipsexesports';
 const YOUTUBE_URL = 'https://www.youtube.com/@eclipsexesports';
+
+const TWITTER_EMOJI_ID = '1556055082221572188';
+const YOUTUBE_EMOJI_ID = '1556054997861539951';
 
 /* ========================================================================== */
 /* BUILD PANEL */
@@ -34,12 +36,6 @@ function buildSocialsComponents() {
             ),
         )
 
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-                .setDivider(true)
-                .setSpacing(2),
-        )
-
         // ------------------------------------------------------------------
         // TWITTER
         // ------------------------------------------------------------------
@@ -54,14 +50,17 @@ function buildSocialsComponents() {
                 )
                 .setButtonAccessory(
                     new ButtonBuilder()
-                        .setLabel(' <:Twitter:1556055082221572188> Twitter/X')
+                        .setLabel('Twitter/X')
+                        .setEmoji({
+                            id: TWITTER_EMOJI_ID,
+                        })
                         .setStyle(ButtonStyle.Link)
                         .setURL(TWITTER_URL),
                 ),
         )
 
         // ------------------------------------------------------------------
-        // LARGE DIVIDER AFTER TWITTER
+        // LARGE DIVIDER
         // ------------------------------------------------------------------
 
         .addSeparatorComponents(
@@ -84,37 +83,20 @@ function buildSocialsComponents() {
                 )
                 .setButtonAccessory(
                     new ButtonBuilder()
-                        .setLabel('<:YouTube:1556054997861539951> YouTube')
+                        .setLabel('YouTube')
+                        .setEmoji({
+                            id: YOUTUBE_EMOJI_ID,
+                        })
                         .setStyle(ButtonStyle.Link)
                         .setURL(YOUTUBE_URL),
                 ),
-        )
-
-        // ------------------------------------------------------------------
-        // MARKER
-        // ------------------------------------------------------------------
-
-        .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-                `-# ${SOCIALS_MARKER}`,
-            ),
         );
 
     return [container];
 }
 
 /* ========================================================================== */
-/* COMPONENT COMPARISON */
-/* ========================================================================== */
-
-function getComponentData(components) {
-    return components.map((component) => {
-        return component.toJSON();
-    });
-}
-
-/* ========================================================================== */
-/* FIND EXISTING PANEL */
+/* FIND EXISTING PANELS */
 /* ========================================================================== */
 
 async function findExistingSocialsPanels(channel) {
@@ -132,9 +114,6 @@ async function findExistingSocialsPanels(channel) {
 
     let before;
 
-    /*
-     * Search up to 2,000 messages.
-     */
     for (let page = 0; page < 20; page++) {
         const options = {
             limit: 100,
@@ -156,9 +135,7 @@ async function findExistingSocialsPanels(channel) {
             console.error(error);
 
             /*
-             * IMPORTANT:
-             * Never create a new panel if we cannot verify
-             * whether one already exists.
+             * Never create a new panel if history cannot be checked.
              */
             return null;
         }
@@ -176,26 +153,16 @@ async function findExistingSocialsPanels(channel) {
                 continue;
             }
 
-            const rawComponents =
+            const json = JSON.stringify(
                 message.components.map((component) =>
                     component.toJSON(),
-                );
-
-            const json = JSON.stringify(rawComponents);
-
-            /*
-             * Primary marker detection.
-             */
-            if (json.includes(SOCIALS_MARKER)) {
-                found.push(message);
-                continue;
-            }
+                ),
+            );
 
             /*
-             * Fallback detection.
+             * Detect the panel by its actual content.
              *
-             * This allows older versions of the panel to be found
-             * even if the marker was not present.
+             * No footer or hidden marker is needed.
              */
             if (
                 json.includes('Eclipse Socials') &&
@@ -286,22 +253,23 @@ function isCurrentSocialsPanel(message) {
         return false;
     }
 
-    const currentComponents =
-        buildSocialsComponents();
-
     const existingJson = JSON.stringify(
-        getComponentData(message.components),
+        message.components.map((component) =>
+            component.toJSON(),
+        ),
     );
 
     const currentJson = JSON.stringify(
-        getComponentData(currentComponents),
+        buildSocialsComponents().map((component) =>
+            component.toJSON(),
+        ),
     );
 
     return existingJson === currentJson;
 }
 
 /* ========================================================================== */
-/* SEND / UPDATE SOCIALS */
+/* SEND / UPDATE */
 /* ========================================================================== */
 
 export async function sendEclipseSocials(client) {
@@ -342,9 +310,9 @@ export async function sendEclipseSocials(client) {
         await findExistingSocialsPanels(channel);
 
     /*
-     * Discord history could not be checked.
+     * Could not check history.
      *
-     * DO NOT CREATE A PANEL.
+     * DO NOT CREATE.
      */
     if (existingPanels === null) {
         console.error(
@@ -358,11 +326,9 @@ export async function sendEclipseSocials(client) {
         return null;
     }
 
-    /*
-     * ================================================================
-     * EXISTING PANEL
-     * ================================================================
-     */
+    /* ---------------------------------------------------------------------- */
+    /* EXISTING PANEL                                                         */
+    /* ---------------------------------------------------------------------- */
 
     if (existingPanels.length > 0) {
         console.log(
@@ -388,8 +354,9 @@ export async function sendEclipseSocials(client) {
         }
 
         /*
-         * Content changed.
-         * Edit instead of creating another message.
+         * Changed content.
+         *
+         * Edit the existing message.
          */
         try {
             await primaryPanel.edit({
@@ -412,11 +379,9 @@ export async function sendEclipseSocials(client) {
         }
     }
 
-    /*
-     * ================================================================
-     * NO PANEL FOUND
-     * ================================================================
-     */
+    /* ---------------------------------------------------------------------- */
+    /* NO PANEL                                                               */
+    /* ---------------------------------------------------------------------- */
 
     console.log(
         '[Eclipse Socials] No existing socials panel found.',
