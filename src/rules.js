@@ -4,19 +4,13 @@ import {
 
 const RULES_CHANNEL_ID = '1554214526478454976';
 
-export async function sendEclipseRules(client) {
-    const channel = await client.channels.fetch(
-        RULES_CHANNEL_ID,
-    );
+const RULES_MARKER = 'Eclipse Rules Panel';
 
-    if (!channel?.isTextBased()) {
-        throw new Error(
-            `Rules channel ${RULES_CHANNEL_ID} was not found or is not a text channel.`,
-        );
-    }
+const RULES_COLOR = 0xFF7B00;
 
-    const embed = new EmbedBuilder()
-        .setColor(0xFF7B00)
+function buildRulesEmbed() {
+    return new EmbedBuilder()
+        .setColor(RULES_COLOR)
         .setDescription(
             `**🌑 | Eclipse — Community Rules**
 
@@ -142,13 +136,168 @@ Our Discord is the home of our community, players and staff. Keep the server org
 **Eclipse reserves the right to take action against behaviour that negatively affects the organisation or community, even if it is not specifically listed above.**
 
 **Thank you for being part of Eclipse. 🌑**`,
+        )
+        .setFooter({
+            text: RULES_MARKER,
+        });
+}
+
+async function findRulesMessage(channel) {
+    let before;
+
+    // Search up to 1,000 messages so the bot can find the
+    // existing panel even if it isn't one of the newest messages.
+    for (let page = 0; page < 10; page++) {
+        const options = {
+            limit: 100,
+        };
+
+        if (before) {
+            options.before = before;
+        }
+
+        let messages;
+
+        try {
+            messages = await channel.messages.fetch(options);
+        } catch (error) {
+            console.error(
+                '[Eclipse Rules] Failed to search channel:',
+                error,
+            );
+
+            return null;
+        }
+
+        if (!messages.size) {
+            break;
+        }
+
+        const existing = messages.find((message) => {
+            if (message.author?.id !== channel.client.user?.id) {
+                return false;
+            }
+
+            if (!message.embeds?.length) {
+                return false;
+            }
+
+            return message.embeds.some(
+                (embed) => embed.footer?.text === RULES_MARKER,
+            );
+        });
+
+        if (existing) {
+            return existing;
+        }
+
+        const oldest = messages.last();
+
+        if (!oldest || messages.size < 100) {
+            break;
+        }
+
+        before = oldest.id;
+    }
+
+    return null;
+}
+
+function isRulesMessageCurrent(message, newEmbed) {
+    const existingEmbed = message?.embeds?.find(
+        (embed) => embed.footer?.text === RULES_MARKER,
+    );
+
+    if (!existingEmbed) {
+        return false;
+    }
+
+    return (
+        existingEmbed.description === newEmbed.data.description &&
+        existingEmbed.color === newEmbed.data.color &&
+        existingEmbed.footer?.text === newEmbed.data.footer?.text
+    );
+}
+
+export async function sendEclipseRules(client) {
+    if (!client) {
+        throw new Error('[Eclipse Rules] Client was not provided.');
+    }
+
+    let channel;
+
+    try {
+        channel = await client.channels.fetch(RULES_CHANNEL_ID);
+    } catch (error) {
+        console.error(
+            `[Eclipse Rules] Failed to fetch rules channel ${RULES_CHANNEL_ID}:`,
+            error,
         );
 
-    await channel.send({
-        embeds: [embed],
-    });
+        return null;
+    }
+
+    if (!channel?.isTextBased()) {
+        console.error(
+            `[Eclipse Rules] Channel ${RULES_CHANNEL_ID} is not a text channel.`,
+        );
+
+        return null;
+    }
 
     console.log(
-        `[Eclipse Rules] Rules embed sent to ${RULES_CHANNEL_ID}.`,
+        '[Eclipse Rules] Searching for existing rules panel...',
     );
+
+    const embed = buildRulesEmbed();
+
+    const existingMessage = await findRulesMessage(channel);
+
+    if (existingMessage) {
+        if (isRulesMessageCurrent(existingMessage, embed)) {
+            console.log(
+                `[Eclipse Rules] Existing rules panel is already up to date (${existingMessage.id}).`,
+            );
+
+            return existingMessage;
+        }
+
+        try {
+            await existingMessage.edit({
+                embeds: [embed],
+            });
+
+            console.log(
+                `[Eclipse Rules] Existing rules panel updated (${existingMessage.id}).`,
+            );
+
+            return existingMessage;
+        } catch (error) {
+            console.error(
+                '[Eclipse Rules] Failed to update existing rules panel:',
+                error,
+            );
+
+            return null;
+        }
+    }
+
+    try {
+        const message = await channel.send({
+            embeds: [embed],
+        });
+
+        console.log(
+            `[Eclipse Rules] Rules panel created (${message.id}).`,
+        );
+
+        return message;
+    } catch (error) {
+        console.error(
+            '[Eclipse Rules] Failed to send rules panel:',
+            error,
+        );
+
+        return null;
+    }
 }
