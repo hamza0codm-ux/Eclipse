@@ -6,7 +6,7 @@ const RULES_CHANNEL_ID = '1554214526478454976';
 
 // Never change this unless you intentionally want to create
 // a completely new rules panel.
-const RULES_MARKER = 'eclipse-rules-panel-v1';
+const RULES_MARKER = null;
 
 const RULES_COLOR = 0xFF7B00;
 
