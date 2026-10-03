@@ -4,7 +4,7 @@ import {
 
 const RULES_CHANNEL_ID = '1554214526478454976';
 
-const RULES_MARKER = 'Eclipse Rules Panel';
+const RULES_MARKER = null;
 
 const RULES_COLOR = 0xFF7B00;
 
