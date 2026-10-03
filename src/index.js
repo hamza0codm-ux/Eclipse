@@ -27,8 +27,9 @@ import {
 } from './rules.js';
 
 import {
-    sendEclipseRequirements,
-} from './how to join.js';
+    sendEclipseSocials,
+} from './socials.js';
+
 
 /* ========================================================================== */
 /* CLIENT */
@@ -49,6 +50,7 @@ const client = new Client({
     ],
 });
 
+
 /* ========================================================================== */
 /* SYSTEM REGISTRATION */
 /* ========================================================================== */
@@ -59,11 +61,13 @@ registerTicketSystem(client);
 
 registerModeration(client);
 
+
 /* ========================================================================== */
 /* READY */
 /* ========================================================================== */
 
 client.once('clientReady', async () => {
+
     console.log(
         `[BOT] Logged in as ${client.user.tag}`,
     );
@@ -72,48 +76,64 @@ client.once('clientReady', async () => {
         `[BOT] Serving ${client.guilds.cache.size} guild(s).`,
     );
 
+
     /* ---------------------------------------------------------------------- */
     /* DATABASE */
     /* ---------------------------------------------------------------------- */
 
     try {
+
         await initializeDatabase();
 
         console.log(
             '[Eclipse Database] PostgreSQL database initialized.',
         );
+
     } catch (error) {
+
         console.error(
             '[BOT] Database initialization failed:',
             error,
         );
+
     }
+
 
     /* ---------------------------------------------------------------------- */
     /* RULES PANEL */
     /* ---------------------------------------------------------------------- */
 
     try {
+
         await sendEclipseRules(client);
+
     } catch (error) {
+
         console.error(
             '[Eclipse Rules] Failed to initialize rules:',
             error,
         );
+
     }
 
+
     /* ---------------------------------------------------------------------- */
-    /* TEAM REQUIREMENTS PANEL */
+    /* SOCIALS PANEL */
     /* ---------------------------------------------------------------------- */
 
     try {
-        await sendEclipseRequirements(client);
+
+        await sendEclipseSocials(client);
+
     } catch (error) {
+
         console.error(
-            '[Eclipse Requirements] Failed to initialize requirements:',
+            '[Eclipse Socials] Failed to initialize socials:',
             error,
         );
+
     }
+
 
     /* ---------------------------------------------------------------------- */
     /* STARTUP COMPLETE */
@@ -122,7 +142,9 @@ client.once('clientReady', async () => {
     console.log(
         '[BOT] Eclipse systems loaded successfully.',
     );
+
 });
+
 
 /* ========================================================================== */
 /* DISCORD ERRORS */
@@ -131,12 +153,15 @@ client.once('clientReady', async () => {
 client.on(
     'error',
     (error) => {
+
         console.error(
             '[DISCORD] Client error:',
             error,
         );
+
     },
 );
+
 
 /* ========================================================================== */
 /* PROCESS ERRORS */
@@ -145,22 +170,28 @@ client.on(
 process.on(
     'unhandledRejection',
     (error) => {
+
         console.error(
             '[PROCESS] Unhandled rejection:',
             error,
         );
+
     },
 );
+
 
 process.on(
     'uncaughtException',
     (error) => {
+
         console.error(
             '[PROCESS] Uncaught exception:',
             error,
         );
+
     },
 );
+
 
 /* ========================================================================== */
 /* LOGIN */
@@ -170,11 +201,13 @@ client.login(
     config.discord.token,
 ).catch(
     (error) => {
+
         console.error(
             '[BOT] Failed to login:',
             error,
         );
 
         process.exitCode = 1;
+
     },
 );
