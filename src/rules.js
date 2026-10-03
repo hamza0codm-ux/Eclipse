@@ -4,9 +4,15 @@ import {
 
 const RULES_CHANNEL_ID = '1554214526478454976';
 
-const RULES_MARKER = null;
+// Never change this unless you intentionally want to create
+// a completely new rules panel.
+const RULES_MARKER = 'eclipse-rules-panel-v1';
 
 const RULES_COLOR = 0xFF7B00;
+
+/* ========================================================================== */
+/* RULES EMBED */
+/* ========================================================================== */
 
 function buildRulesEmbed() {
     return new EmbedBuilder()
@@ -142,12 +148,24 @@ Our Discord is the home of our community, players and staff. Keep the server org
         });
 }
 
-async function findRulesMessage(channel) {
-    let before;
+/* ========================================================================== */
+/* FIND EXISTING RULES PANELS */
+/* ========================================================================== */
 
-    // Search up to 1,000 messages so the bot can find the
-    // existing panel even if it isn't one of the newest messages.
-    for (let page = 0; page < 10; page++) {
+/**
+ * Searches Discord for ALL existing Eclipse rules panels.
+ *
+ * We deliberately search Discord instead of storing a message ID.
+ * This means restarting the bot, redeploying Railway, or clearing a
+ * database cannot cause a new rules message to be created.
+ */
+async function findExistingRulesMessages(channel) {
+    const found = [];
+
+    let before = undefined;
+
+    // Search up to 2,000 messages.
+    for (let page = 0; page < 20; page++) {
         const options = {
             limit: 100,
         };
@@ -162,75 +180,155 @@ async function findRulesMessage(channel) {
             messages = await channel.messages.fetch(options);
         } catch (error) {
             console.error(
-                '[Eclipse Rules] Failed to search channel:',
+                '[Eclipse Rules] Failed to search rules channel:',
                 error,
             );
 
-            return null;
+            break;
         }
 
         if (!messages.size) {
             break;
         }
 
-        const existing = messages.find((message) => {
-            if (message.author?.id !== channel.client.user?.id) {
-                return false;
+        for (const message of messages.values()) {
+            // Only consider messages sent by this bot.
+            if (
+                !channel.client.user ||
+                message.author?.id !== channel.client.user.id
+            ) {
+                continue;
             }
 
             if (!message.embeds?.length) {
-                return false;
+                continue;
             }
 
-            return message.embeds.some(
-                (embed) => embed.footer?.text === RULES_MARKER,
+            const isRulesPanel = message.embeds.some(
+                (embed) =>
+                    embed.footer?.text === RULES_MARKER,
             );
-        });
 
-        if (existing) {
-            return existing;
+            if (isRulesPanel) {
+                found.push(message);
+            }
         }
 
-        const oldest = messages.last();
+        const oldestMessage = messages.last();
 
-        if (!oldest || messages.size < 100) {
+        if (!oldestMessage) {
             break;
         }
 
-        before = oldest.id;
+        if (messages.size < 100) {
+            break;
+        }
+
+        before = oldestMessage.id;
     }
 
-    return null;
+    return found;
 }
 
-function isRulesMessageCurrent(message, newEmbed) {
+/* ========================================================================== */
+/* CHECK CONTENT */
+/* ========================================================================== */
+
+function rulesMessageIsCurrent(message, newEmbed) {
     const existingEmbed = message?.embeds?.find(
-        (embed) => embed.footer?.text === RULES_MARKER,
+        (embed) =>
+            embed.footer?.text === RULES_MARKER,
     );
 
     if (!existingEmbed) {
         return false;
     }
 
+    const existingDescription =
+        existingEmbed.description ?? null;
+
+    const newDescription =
+        newEmbed.data.description ?? null;
+
+    const existingColor =
+        existingEmbed.color ?? null;
+
+    const newColor =
+        newEmbed.data.color ?? null;
+
+    const existingFooter =
+        existingEmbed.footer?.text ?? null;
+
+    const newFooter =
+        newEmbed.data.footer?.text ?? null;
+
     return (
-        existingEmbed.description === newEmbed.data.description &&
-        existingEmbed.color === newEmbed.data.color &&
-        existingEmbed.footer?.text === newEmbed.data.footer?.text
+        existingDescription === newDescription &&
+        existingColor === newColor &&
+        existingFooter === newFooter
     );
 }
 
+/* ========================================================================== */
+/* REMOVE DUPLICATES */
+/* ========================================================================== */
+
+async function removeDuplicateRulesPanels(messages) {
+    if (messages.length <= 1) {
+        return;
+    }
+
+    /*
+     * Sort oldest -> newest.
+     *
+     * We keep the oldest existing rules panel because it is the original
+     * panel in the channel and prevents unnecessary message replacement.
+     */
+    const sorted = [...messages].sort(
+        (a, b) =>
+            BigInt(a.id) < BigInt(b.id) ? -1 : 1,
+    );
+
+    const primary = sorted[0];
+
+    for (const duplicate of sorted.slice(1)) {
+        try {
+            await duplicate.delete();
+
+            console.log(
+                `[Eclipse Rules] Removed duplicate rules panel (${duplicate.id}).`,
+            );
+        } catch (error) {
+            console.error(
+                `[Eclipse Rules] Failed to remove duplicate rules panel ${duplicate.id}:`,
+                error,
+            );
+        }
+    }
+
+    return primary;
+}
+
+/* ========================================================================== */
+/* SEND / UPDATE RULES */
+/* ========================================================================== */
+
 export async function sendEclipseRules(client) {
     if (!client) {
-        throw new Error('[Eclipse Rules] Client was not provided.');
+        throw new Error(
+            '[Eclipse Rules] Discord client was not provided.',
+        );
     }
 
     let channel;
 
     try {
-        channel = await client.channels.fetch(RULES_CHANNEL_ID);
+        channel = await client.channels.fetch(
+            RULES_CHANNEL_ID,
+        );
     } catch (error) {
         console.error(
-            `[Eclipse Rules] Failed to fetch rules channel ${RULES_CHANNEL_ID}:`,
+            `[Eclipse Rules] Failed to fetch channel ${RULES_CHANNEL_ID}:`,
             error,
         );
 
@@ -246,35 +344,83 @@ export async function sendEclipseRules(client) {
     }
 
     console.log(
-        '[Eclipse Rules] Searching for existing rules panel...',
+        '[Eclipse Rules] Searching Discord for existing rules panel...',
     );
 
-    const embed = buildRulesEmbed();
+    const rulesEmbed = buildRulesEmbed();
 
-    const existingMessage = await findRulesMessage(channel);
+    /*
+     * IMPORTANT:
+     *
+     * We search BEFORE sending anything.
+     *
+     * This is what prevents a new panel from being created every time
+     * the bot restarts.
+     */
+    const existingPanels =
+        await findExistingRulesMessages(channel);
 
-    if (existingMessage) {
-        if (isRulesMessageCurrent(existingMessage, embed)) {
-            console.log(
-                `[Eclipse Rules] Existing rules panel is already up to date (${existingMessage.id}).`,
-            );
+    /* ---------------------------------------------------------------------- */
+    /* EXISTING PANEL FOUND                                                   */
+    /* ---------------------------------------------------------------------- */
 
-            return existingMessage;
+    if (existingPanels.length > 0) {
+        console.log(
+            `[Eclipse Rules] Found ${existingPanels.length} existing rules panel(s).`,
+        );
+
+        let primaryPanel;
+
+        if (existingPanels.length > 1) {
+            primaryPanel =
+                await removeDuplicateRulesPanels(
+                    existingPanels,
+                );
+        } else {
+            primaryPanel = existingPanels[0];
         }
 
+        if (!primaryPanel) {
+            console.error(
+                '[Eclipse Rules] Could not determine the primary rules panel.',
+            );
+
+            return null;
+        }
+
+        /*
+         * If nothing changed, do absolutely nothing.
+         */
+        if (
+            rulesMessageIsCurrent(
+                primaryPanel,
+                rulesEmbed,
+            )
+        ) {
+            console.log(
+                `[Eclipse Rules] Rules panel already up to date (${primaryPanel.id}).`,
+            );
+
+            return primaryPanel;
+        }
+
+        /*
+         * Something changed.
+         * Edit the existing panel instead of sending a new one.
+         */
         try {
-            await existingMessage.edit({
-                embeds: [embed],
+            await primaryPanel.edit({
+                embeds: [rulesEmbed],
             });
 
             console.log(
-                `[Eclipse Rules] Existing rules panel updated (${existingMessage.id}).`,
+                `[Eclipse Rules] Rules panel updated (${primaryPanel.id}).`,
             );
 
-            return existingMessage;
+            return primaryPanel;
         } catch (error) {
             console.error(
-                '[Eclipse Rules] Failed to update existing rules panel:',
+                `[Eclipse Rules] Failed to update rules panel ${primaryPanel.id}:`,
                 error,
             );
 
@@ -282,19 +428,27 @@ export async function sendEclipseRules(client) {
         }
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* NO PANEL FOUND                                                          */
+    /* ---------------------------------------------------------------------- */
+
+    console.log(
+        '[Eclipse Rules] No existing rules panel found. Creating one...',
+    );
+
     try {
         const message = await channel.send({
-            embeds: [embed],
+            embeds: [rulesEmbed],
         });
 
         console.log(
-            `[Eclipse Rules] Rules panel created (${message.id}).`,
+            `[Eclipse Rules] Rules panel created successfully (${message.id}).`,
         );
 
         return message;
     } catch (error) {
         console.error(
-            '[Eclipse Rules] Failed to send rules panel:',
+            '[Eclipse Rules] Failed to create rules panel:',
             error,
         );
 
