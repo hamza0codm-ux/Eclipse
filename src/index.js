@@ -22,9 +22,12 @@ import {
     registerModeration,
 } from './moderation.js';
 
+import {
+    sendEclipseRules,
+} from './rules.js';
 
 /* ========================================================================== */
-/* CLIENT                                                                     */
+/* CLIENT */
 /* ========================================================================== */
 
 const client = new Client({
@@ -42,9 +45,8 @@ const client = new Client({
     ],
 });
 
-
 /* ========================================================================== */
-/* SYSTEM REGISTRATION                                                        */
+/* SYSTEM REGISTRATION */
 /* ========================================================================== */
 
 registerWelcome(client);
@@ -53,9 +55,8 @@ registerTicketSystem(client);
 
 registerModeration(client);
 
-
 /* ========================================================================== */
-/* READY                                                                      */
+/* READY */
 /* ========================================================================== */
 
 client.once('clientReady', async () => {
@@ -67,15 +68,15 @@ client.once('clientReady', async () => {
         `[BOT] Serving ${client.guilds.cache.size} guild(s).`,
     );
 
+    /* ---------------------------------------------------------------------- */
+    /* DATABASE */
+    /* ---------------------------------------------------------------------- */
+
     try {
         await initializeDatabase();
 
         console.log(
             '[Eclipse Database] PostgreSQL database initialized.',
-        );
-
-        console.log(
-            '[BOT] Eclipse systems loaded successfully.',
         );
     } catch (error) {
         console.error(
@@ -83,11 +84,31 @@ client.once('clientReady', async () => {
             error,
         );
     }
+
+    /* ---------------------------------------------------------------------- */
+    /* RULES PANEL */
+    /* ---------------------------------------------------------------------- */
+
+    try {
+        await sendEclipseRules(client);
+    } catch (error) {
+        console.error(
+            '[Eclipse Rules] Failed to initialize rules:',
+            error,
+        );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* STARTUP COMPLETE */
+    /* ---------------------------------------------------------------------- */
+
+    console.log(
+        '[BOT] Eclipse systems loaded successfully.',
+    );
 });
 
-
 /* ========================================================================== */
-/* DISCORD ERRORS                                                             */
+/* DISCORD ERRORS */
 /* ========================================================================== */
 
 client.on(
@@ -100,9 +121,8 @@ client.on(
     },
 );
 
-
 /* ========================================================================== */
-/* PROCESS ERRORS                                                             */
+/* PROCESS ERRORS */
 /* ========================================================================== */
 
 process.on(
@@ -125,9 +145,8 @@ process.on(
     },
 );
 
-
 /* ========================================================================== */
-/* LOGIN                                                                      */
+/* LOGIN */
 /* ========================================================================== */
 
 client.login(
@@ -142,3 +161,4 @@ client.login(
         process.exitCode = 1;
     },
 );
+
