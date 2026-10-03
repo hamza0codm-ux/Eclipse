@@ -26,6 +26,10 @@ import {
     sendEclipseRules,
 } from './rules.js';
 
+import {
+    sendEclipseRequirements,
+} from './how to join.js';
+
 /* ========================================================================== */
 /* CLIENT */
 /* ========================================================================== */
@@ -99,6 +103,19 @@ client.once('clientReady', async () => {
     }
 
     /* ---------------------------------------------------------------------- */
+    /* TEAM REQUIREMENTS PANEL */
+    /* ---------------------------------------------------------------------- */
+
+    try {
+        await sendEclipseRequirements(client);
+    } catch (error) {
+        console.error(
+            '[Eclipse Requirements] Failed to initialize requirements:',
+            error,
+        );
+    }
+
+    /* ---------------------------------------------------------------------- */
     /* STARTUP COMPLETE */
     /* ---------------------------------------------------------------------- */
 
@@ -161,4 +178,3 @@ client.login(
         process.exitCode = 1;
     },
 );
-
