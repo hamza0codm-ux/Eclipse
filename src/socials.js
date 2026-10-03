@@ -11,8 +11,6 @@ import {
 
 const SOCIALS_CHANNEL_ID = '1554243360842063942';
 
-const SOCIALS_MARKER = null;
-
 const SOCIALS_COLOR = 0xFF7B00;
 
 const TWITTER_URL = 'https://x.com/eclipsexesports';
